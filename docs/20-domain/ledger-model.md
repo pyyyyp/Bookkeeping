@@ -132,17 +132,21 @@
 ```kotlin
 // 接口在 domain，实现在 data（R4：依赖倒置）
 interface LedgerEntryRepository {
-    suspend fun add(entry: LedgerEntry)
-    suspend fun remove(id: LedgerEntryId)
-    suspend fun recent(limit: Int): List<LedgerEntry>   // 按 occurredAt 倒序
+    suspend fun add(entry: LedgerEntry): Outcome<Unit>
+    suspend fun remove(id: LedgerEntryId): Outcome<Unit>
+    suspend fun recent(limit: Int): Outcome<List<LedgerEntry>>   // 按 occurredAt 倒序
 }
 ```
 
+> **为什么返回值是 `Outcome` 而不是直接返回数据 / 抛异常**：
+> 「不抛异常跨层」是硬规则，而存储失败（磁盘满、数据库损坏）是**可预期**的失败。
+> 因此 `data` 层负责把技术异常翻译成 `DomainError.Technical`，
+> 上层拿到 `Outcome`，不必写 try/catch。
+> 仓储实现在 `feature:ledger` 的 `data/repository`（见 `ADR-0007`）。
+>
 > **为什么没有 `observeRecent(...): Flow<...>`**（原设计里有）：
-> 反应式观察要求领域层依赖 kotlinx-coroutines，而**引入新依赖需要单独裁决**。
+> 反应式观察要求领域层依赖 kotlinx-coroutines，而引入新依赖需要单独裁决。
 > 本卡的界面只要「改动后重新查询」就能刷新，所以 `suspend` 就够了。
-> 等数据层落地时若确实需要 Flow，就在 `:core:data` 声明协程依赖
-> —— **不让领域层为一个尚未兑现的需要先背上一份依赖**。
 
 > 接口说**领域语言**（`recent` / `add` / `remove`），不说 SQL 语言
 > （不出现 `insert` / `delete` / `query` / `LIMIT`）。
@@ -154,9 +158,12 @@ interface LedgerEntryRepository {
 
 | 用例 | 输入 | 输出 | 不变式/边界 |
 |---|---|---|---|
-| `RecordLedgerEntryUseCase` | `direction, amount, categoryId, occurredAt, note` | `Outcome<LedgerEntryId>` | 走 `LedgerEntry.record()`，不变式全部生效 |
-| `ObserveRecentEntriesUseCase` | `limit` | `Flow<List<LedgerEntry>>` | 只读；排序在仓储层保证 |
-| `DeleteLedgerEntryUseCase` | `LedgerEntryId` | `Outcome<Unit>` | 物理删除（`ADR-0005`） |
+| `RecordLedgerEntryUseCase` | `direction, amount, categoryId, occurredAt, note` | `Outcome<LedgerEntryId>` | 走 `LedgerEntry.record()`，不变式全部生效；`bookedAt` 取注入的 `Clock` |
+| `LoadRecentEntriesUseCase` | `limit`（默认 200） | `Outcome<List<LedgerEntry>>` | 只读；排序由仓储（SQL）保证 |
+| `DeleteLedgerEntryUseCase` | `LedgerEntryId` | `Outcome<Unit>` | 物理删除（`ADR-0005`）；条目不存在时返回 `LedgerError.EntryNotFound` |
+
+> **用例名说明**：叫 `Load...` 而不是 `Observe...`——本卡不做反应式观察，
+> **名字必须说明它真的做了什么**，否则调用方会以为界面会自动刷新。
 
 **用例只编排，不含业务规则**：金额是否合法、备注是否过长，都在 `LedgerEntry` 里判定。
 用例负责「取分类 → 组装 → 调仓储 → 映射错误」，不负责「判断金额能不能为 0」。
