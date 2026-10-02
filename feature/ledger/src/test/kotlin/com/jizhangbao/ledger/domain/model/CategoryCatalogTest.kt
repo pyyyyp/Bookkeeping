@@ -58,19 +58,31 @@ class CategoryCatalogTest {
         // 同一个标识不能代表两个分类；否则历史条目会指向「哪一个餐饮」变得不确定
         CategoryCatalog(
             listOf(
-                Category(CategoryId("food"), "餐饮", setOf(EntryDirection.Expense)),
-                Category(CategoryId("food"), "吃饭", setOf(EntryDirection.Expense)),
+                preset("food", "餐饮"),
+                preset("food", "吃饭"),
             ),
         )
     }
 
     @Test(expected = IllegalArgumentException::class)
     fun `展示名为空白的分类在构造时就被拒绝`() {
-        Category(CategoryId("food"), "   ", setOf(EntryDirection.Expense))
+        preset("food", "   ")
     }
 
     @Test(expected = IllegalArgumentException::class)
     fun `不支持任何方向的分类在构造时就被拒绝`() {
-        Category(CategoryId("food"), "餐饮", emptySet())
+        preset("food", "餐饮", emptySet())
     }
+
+    /**
+     * 构造一个内置分类。
+     *
+     * `REQ-004` 之后 `Category` 是聚合（多一个 `archived` 状态），
+     * 而这些测试要的是"**可信常量**走 restore 路径"这层语义 —— 与 `CategoryCatalog.PRESET` 一致。
+     */
+    private fun preset(
+        id: String,
+        name: String,
+        directions: Set<EntryDirection> = setOf(EntryDirection.Expense),
+    ): Category = Category.restore(CategoryId(id), name, directions, archived = false)
 }

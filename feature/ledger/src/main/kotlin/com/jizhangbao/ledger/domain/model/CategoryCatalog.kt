@@ -36,18 +36,32 @@ class CategoryCatalog internal constructor(private val categories: List<Category
     fun byId(id: CategoryId): Category? = categories.firstOrNull { it.id == id }
 
     companion object {
-        /** 随应用内置的分类。`other` 两个方向都可用。 */
+        /**
+         * 随应用内置的分类。`other` 两个方向都可用。
+         *
+         * 用 [Category.restore] 而不是 `create`：这些是**随代码编译进来的可信常量**
+         * （与"从存储恢复"同一种性质：值已经是对的，不需要再走用户输入的校验路径）。
+         * 写错了会在构造时立刻抛出来 —— 那正是编译期常量该有的失败方式。
+         */
         val PRESET: CategoryCatalog = CategoryCatalog(
             listOf(
-                Category(CategoryId("food"), "餐饮", setOf(EntryDirection.Expense)),
-                Category(CategoryId("transport"), "交通", setOf(EntryDirection.Expense)),
-                Category(CategoryId("shopping"), "购物", setOf(EntryDirection.Expense)),
-                Category(CategoryId("housing"), "居住", setOf(EntryDirection.Expense)),
-                Category(CategoryId("medical"), "医疗", setOf(EntryDirection.Expense)),
-                Category(CategoryId("entertainment"), "娱乐", setOf(EntryDirection.Expense)),
-                Category(CategoryId("salary"), "工资", setOf(EntryDirection.Income)),
-                Category(CategoryId("other"), "其他", EntryDirection.entries.toSet()),
+                preset("food", "餐饮", EntryDirection.Expense),
+                preset("transport", "交通", EntryDirection.Expense),
+                preset("shopping", "购物", EntryDirection.Expense),
+                preset("housing", "居住", EntryDirection.Expense),
+                preset("medical", "医疗", EntryDirection.Expense),
+                preset("entertainment", "娱乐", EntryDirection.Expense),
+                preset("salary", "工资", EntryDirection.Income),
+                preset("other", "其他", *EntryDirection.entries.toTypedArray()),
             ),
         )
+
+        private fun preset(id: String, name: String, vararg directions: EntryDirection): Category =
+            Category.restore(
+                id = CategoryId(id),
+                name = name,
+                directions = directions.toSet(),
+                archived = false,
+            )
     }
 }
