@@ -1,0 +1,108 @@
+# CI 门禁（T-004）
+#
+# 目标：把「提交前门禁」与「追溯矩阵完整性」从人的自觉变成机器的强制（原则 P4）。
+#
+# ⚠️ 诚实声明：本文件**尚未在真实 runner 上跑过**——仓库目前没有 GitHub 远端。
+# 已验证的部分：YAML 语法（PyYAML 解析通过）、每条命令在本机等价可用、
+#              追溯脚本的 5 个失败场景（见 T-004 卡的反向验证记录）。
+# 未验证的部分：ubuntu runner 上 android-actions/setup-android 能否提供
+#              platforms;android-37.0（37.0 是很新的 API），以及各步的实际耗时。
+# 首次推送后请核对日志，并把结论回填 T-004 卡。
+#
+# 与 AGENTS.md 阶段 E 的对应关系（逐项一致，顺序也一致）：
+#   ./gradlew detekt                          → 「静态分析」
+#   ./gradlew lintDebug                       → 同上（AGENTS.md 把两者并列）
+#   ./gradlew verifyDomainPurity checkModuleDependencies → 「架构规则」
+#   ./gradlew testDebugUnitTest               → 「单测」（含 Konsist 架构断言）
+#   ./gradlew assembleDebug                   → 「构建」
+#   ./scripts/verify-traceability.ps1         → 追溯矩阵校验（T-004 新增）
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feat/**'
+      - 'fix/**'
+      - 'docs/**'
+      - 'refactor/**'
+  pull_request:
+  workflow_dispatch:
+
+# 同一分支上的新推送取消仍在跑的旧任务，省额度
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: 提交前门禁
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 装 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # 缓存 Gradle 依赖与 wrapper 发行版，并提供构建扫描摘要
+      - name: 配置 Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: 装 Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 安装本工程需要的 SDK 组件
+        # compileSdk 37 由 Compose BOM 2026.09 的下限决定（见 ADR-0003 决策 3），
+        # 所以必须显式装 android-37.0——不能指望 runner 镜像里恰好有。
+        run: |
+          sdkmanager --install "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
+          yes | sdkmanager --licenses
+
+      - name: 确保 gradlew 可执行
+        # 本工程在 Windows 上开发，Git 里的执行位随时可能被重新加回文件时丢掉
+        # （已用 git update-index --chmod=+x 修正过一次）。这里再兜一次，
+        # 免得失败信息变成难以理解的 "Permission denied"。
+        run: chmod +x ./gradlew
+
+      - name: 静态分析（detekt）
+        run: ./gradlew detekt --console=plain
+
+      - name: Android Lint
+        run: ./gradlew lintDebug --console=plain
+
+      - name: 架构规则（R2 / R3 / R7 / R8）
+        run: ./gradlew verifyDomainPurity checkModuleDependencies --console=plain
+
+      - name: 单元测试（含 Konsist 架构断言 R2/R5/R6/R8/R10）
+        run: ./gradlew testDebugUnitTest --console=plain
+
+      - name: 构建 Debug APK
+        run: ./gradlew assembleDebug --console=plain
+
+      - name: 追溯矩阵校验
+        # 用 pwsh 而不是 bash：本机是 Windows，脚本只有一份（见脚本头部说明）。
+        # ubuntu runner 预装 PowerShell 7。
+        shell: pwsh
+        run: ./scripts/verify-traceability.ps1
+
+      - name: 失败时上传报告
+        # 报告是排查失败的入口；只在失败时上传，避免刷满存储
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          if-no-files-found: ignore
+          path: |
+            **/build/reports/**
+            **/build/test-results/**
