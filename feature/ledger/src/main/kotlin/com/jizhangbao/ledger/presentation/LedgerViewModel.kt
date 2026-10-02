@@ -7,10 +7,10 @@ import com.jizhangbao.core.domain.Money
 import com.jizhangbao.core.domain.EntryDirection
 import com.jizhangbao.core.domain.Outcome
 import com.jizhangbao.ledger.application.DeleteLedgerEntryUseCase
+import com.jizhangbao.ledger.application.LoadCategoriesUseCase
 import com.jizhangbao.ledger.application.LoadRecentEntriesUseCase
 import com.jizhangbao.ledger.application.RecordLedgerEntryUseCase
 import com.jizhangbao.ledger.application.ReviseLedgerEntryUseCase
-import com.jizhangbao.ledger.domain.model.CategoryCatalog
 import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.LedgerEntry
 import com.jizhangbao.ledger.domain.model.Note
@@ -43,6 +43,7 @@ internal class LedgerViewModel @Inject constructor(
     private val loadEntries: LoadRecentEntriesUseCase,
     private val deleteEntry: DeleteLedgerEntryUseCase,
     private val reviseEntry: ReviseLedgerEntryUseCase,
+    private val loadCategories: LoadCategoriesUseCase,
     clock: Clock,
 ) : ViewModel() {
 
@@ -51,6 +52,20 @@ internal class LedgerViewModel @Inject constructor(
 
     init {
         refreshEntries()
+        refreshCategories()
+    }
+
+    /**
+     * 分类管理界面关掉之后调用（`REQ-004`）。
+     *
+     * 分类是被**另一个** ViewModel 改的（`CategoryManagerViewModel`），
+     * 而"账本页要在改完之后看到新的分类清单"这件事只有界面知道 ——
+     * 所以由界面在关闭时通知一次，而不是让两个 ViewModel 互相持有。
+     * 这与 `T-009` 用"顶部插槽 + 修订号"而不是回调是同一个立场：
+     * 跨界面/跨上下文的联动交给组合根，不让它们彼此认识。
+     */
+    fun onCategoriesChanged() {
+        refreshCategories()
     }
 
     fun onAmountChange(text: String) {
@@ -63,7 +78,9 @@ internal class LedgerViewModel @Inject constructor(
             // 换方向后，原先选的分类可能已经不适用（例如从「支出」切到「收入」还选着「餐饮」）。
             // 不静默保留：那会让用户提交一个与方向矛盾的分类。
             val stillSelectable = current.selectedCategoryId?.let { id ->
-                CategoryCatalog.PRESET.forDirection(direction).any { it.id == id }
+                // 用状态里的全部分类（含自定义），而不是内置清单：
+                // 否则用户刚建的分类在切方向时会被"误判为不适用"而清掉
+                current.allCategories.any { it.id == id && !it.archived && it.supports(direction) }
             } ?: false
             current.copy(
                 direction = direction,
@@ -255,6 +272,16 @@ internal class LedgerViewModel @Inject constructor(
             ) {
                 is Outcome.Err -> Outcome.Err(recorded.error)
                 is Outcome.Ok -> Outcome.Ok(Unit)
+            }
+        }
+    }
+
+    private fun refreshCategories() {
+        viewModelScope.launch {
+            when (val result = loadCategories()) {
+                is Outcome.Ok -> _uiState.update { it.copy(allCategories = result.value) }
+                // 读不到分类不该打断记账：状态里已有预置清单，界面照常能用
+                is Outcome.Err -> Unit
             }
         }
     }

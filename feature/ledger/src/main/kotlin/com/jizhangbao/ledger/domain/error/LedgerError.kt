@@ -29,4 +29,22 @@ sealed interface LedgerError : DomainError {
 
     /** 要删除 / 查询的条目不存在 */
     data object EntryNotFound : LedgerError
+
+    /** `REQ-004/AC-6`：分类名不合法（空 / 只有空格 / 超过 20 字） */
+    data object CategoryNameInvalid : LedgerError
+
+    /** `REQ-004/BR-8`：分类至少要支持一个收支方向 */
+    data object CategoryDirectionRequired : LedgerError
+
+    /**
+     * `REQ-004/AC-5`：分类名已被占用。
+     *
+     * ⚠️ 它由**应用层**产生，不是聚合抛的：唯一性是跨聚合规则（`BR-7`）。
+     * 放在这里是因为它仍是**领域的失败语义**（界面要给出"这个名字已经有了"），
+     * 而不是技术故障。
+     */
+    data object CategoryNameTaken : LedgerError
+
+    /** 要改名 / 归档 / 恢复的分类不存在（与 `EntryNotFound` 同一个语义） */
+    data object CategoryNotFound : LedgerError
 }

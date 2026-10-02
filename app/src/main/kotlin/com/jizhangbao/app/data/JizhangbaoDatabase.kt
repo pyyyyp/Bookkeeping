@@ -2,6 +2,8 @@ package com.jizhangbao.app.data
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import com.jizhangbao.ledger.data.local.CategoryDao
+import com.jizhangbao.ledger.data.local.CategoryEntity
 import com.jizhangbao.ledger.data.local.LedgerEntryDao
 import com.jizhangbao.ledger.data.local.LedgerEntryEntity
 
@@ -21,17 +23,23 @@ import com.jizhangbao.ledger.data.local.LedgerEntryEntity
  *
  * ## 迁移
  *
- * `version = 1`、`exportSchema = true`：schema JSON 提交进 Git（ADR-0001 决策 3），
- * 否则将来写不了迁移测试。
+ * `exportSchema = true`：schema JSON 提交进 Git（ADR-0001 决策 3），否则将来写不了迁移测试。
  * **禁止** `fallbackToDestructiveMigration()`（AGENTS.md 第 7 节第 14 条）——
  * 那等于把用户的数据在版本升级时悄悄删掉。
+ *
+ * 版本历史（每次加表/改列都要在这里记一笔，并同时写迁移）：
+ * - `1`：`ledger_entry`（`T-007`）
+ * - `2`：`category`（`T-012` / `REQ-004`）—— 新表，用 `MIGRATION_1_2` 建，
+ *   迁移 SQL 写在 [MIGRATION_1_2] 所在的 `Migrations.kt`（同一个 `data` 包）
  */
 @Database(
-    entities = [LedgerEntryEntity::class],
-    version = 1,
+    entities = [LedgerEntryEntity::class, CategoryEntity::class],
+    version = 2,
     exportSchema = true,
 )
 abstract class JizhangbaoDatabase : RoomDatabase() {
 
     abstract fun ledgerEntryDao(): LedgerEntryDao
+
+    abstract fun categoryDao(): CategoryDao
 }
