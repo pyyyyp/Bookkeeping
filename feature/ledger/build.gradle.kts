@@ -15,6 +15,9 @@ android {
 dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:ui"))
+    // core:common：日志接口（T-015 / ADR-0010）。数据层的异常翻译要把原因记下来，
+    // 而"往哪记"是可替换的基础设施细节 —— 接口住 core:common，实现绑在 :app。
+    implementation(project(":core:common"))
 
     // presentation：Compose 与 ViewModel
     implementation(platform(libs.compose.bom))

@@ -7,6 +7,7 @@ import com.jizhangbao.core.domain.Outcome
 import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.LedgerEntry
 import com.jizhangbao.ledger.domain.model.LedgerEntryId
+import com.jizhangbao.ledger.domain.model.RecentEntries
 import com.jizhangbao.ledger.testing.FakeLedgerEntryRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -40,21 +41,34 @@ class LoadRecentEntriesUseCaseTest {
 
     @Test
     fun `默认按首屏条数读取最近的条目`() = runBlocking {
-        repository.recentOutcome = Outcome.Ok(listOf(entry(0, 100), entry(1, 200)))
+        repository.recentOutcome = Outcome.Ok(RecentEntries.of(listOf(entry(0, 100), entry(1, 200))))
 
         val result = useCase()
 
         assertTrue(result is Outcome.Ok)
-        assertEquals(2, (result as Outcome.Ok).value.size)
+        assertEquals(2, (result as Outcome.Ok).value.entries.size)
     }
 
     @Test
     fun `可以指定条数`() = runBlocking {
-        repository.recentOutcome = Outcome.Ok(listOf(entry(0, 100), entry(1, 200), entry(2, 300)))
+        repository.recentOutcome =
+            Outcome.Ok(RecentEntries.of(listOf(entry(0, 100), entry(1, 200), entry(2, 300))))
 
         val result = useCase(limit = 2)
 
-        assertEquals(3, (result as Outcome.Ok).value.size) // fake 不排序也不截断，只回答"被调用"
+        assertEquals(3, (result as Outcome.Ok).value.entries.size) // fake 不排序也不截断，只回答"被调用"
+    }
+
+    @Test
+    fun `读不出来的条数会一路传出来`() = runBlocking {
+        // REQ-006/AC-3：仓储说"跳过了 1 条"，用例必须原样带出去，界面才可能告知用户
+        repository.recentOutcome = Outcome.Ok(RecentEntries(entries = listOf(entry(0, 100)), unreadable = 1))
+
+        val result = useCase()
+
+        val loaded = (result as Outcome.Ok).value
+        assertEquals(1, loaded.entries.size)
+        assertEquals(1, loaded.unreadable)
     }
 
     @Test

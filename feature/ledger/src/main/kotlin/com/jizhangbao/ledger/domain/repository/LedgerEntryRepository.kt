@@ -3,6 +3,7 @@ package com.jizhangbao.ledger.domain.repository
 import com.jizhangbao.core.domain.Outcome
 import com.jizhangbao.ledger.domain.model.LedgerEntry
 import com.jizhangbao.ledger.domain.model.LedgerEntryId
+import com.jizhangbao.ledger.domain.model.RecentEntries
 
 /**
  * 账目条目的仓储接口。
@@ -41,6 +42,12 @@ interface LedgerEntryRepository {
 
     suspend fun remove(id: LedgerEntryId): Outcome<Unit>
 
-    /** 最近 [limit] 条，**按发生时间倒序**（`REQ-001/AC-7`）。 */
-    suspend fun recent(limit: Int): Outcome<List<LedgerEntry>>
+    /**
+     * 最近 [limit] 条，**按发生时间倒序**（`REQ-001/AC-7`）。
+     *
+     * 返回 [RecentEntries] 而不是 `List<LedgerEntry>`：库里可能有**读不出来**的行
+     * （数据被外部改坏），那时要"跳过它 + 计数 + 告知"，而不是整批失败或静默丢弃
+     * （`REQ-006/AC-3`）。
+     */
+    suspend fun recent(limit: Int): Outcome<RecentEntries>
 }

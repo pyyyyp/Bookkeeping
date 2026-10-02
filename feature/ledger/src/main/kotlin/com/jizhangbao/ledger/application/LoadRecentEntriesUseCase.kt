@@ -1,7 +1,7 @@
 package com.jizhangbao.ledger.application
 
 import com.jizhangbao.core.domain.Outcome
-import com.jizhangbao.ledger.domain.model.LedgerEntry
+import com.jizhangbao.ledger.domain.model.RecentEntries
 import com.jizhangbao.ledger.domain.repository.LedgerEntryRepository
 import javax.inject.Inject
 
@@ -17,7 +17,7 @@ import javax.inject.Inject
  */
 class LoadRecentEntriesUseCase @Inject constructor(private val repository: LedgerEntryRepository) {
 
-    suspend operator fun invoke(limit: Int = DEFAULT_LIMIT): Outcome<List<LedgerEntry>> =
+    suspend operator fun invoke(limit: Int = DEFAULT_LIMIT): Outcome<RecentEntries> =
         repository.recent(limit)
 
     companion object {

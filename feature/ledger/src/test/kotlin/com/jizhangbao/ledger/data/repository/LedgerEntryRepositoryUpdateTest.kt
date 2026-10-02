@@ -8,6 +8,7 @@ import com.jizhangbao.ledger.domain.error.LedgerError
 import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.LedgerEntry
 import com.jizhangbao.ledger.testing.FakeLedgerEntryDao
+import com.jizhangbao.ledger.testing.RecordingLogger
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -26,7 +27,8 @@ import java.time.Instant
 class LedgerEntryRepositoryUpdateTest {
 
     private val dao = FakeLedgerEntryDao()
-    private val repository = LedgerEntryRepositoryImpl(dao)
+    // T-015：仓储多了日志依赖。用记录型实现，需要时还能断言"记了什么"
+    private val repository = LedgerEntryRepositoryImpl(dao, RecordingLogger())
 
     private val occurredAt = Instant.parse("2026-10-02T09:00:00Z")
 

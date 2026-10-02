@@ -34,6 +34,8 @@ internal fun EntriesSection(
     entries: List<LedgerEntry>,
     zone: ZoneId,
     showDeletedNotice: Boolean,
+    /** 读不出来的条数（`REQ-006/AC-3`）：> 0 时必须说出来，不能让它看起来像"账目变少了"。 */
+    unreadableEntries: Int,
     onEdit: (LedgerEntry) -> Unit,
     onDelete: (LedgerEntry) -> Unit,
     /**
@@ -59,6 +61,15 @@ internal fun EntriesSection(
         text = stringResource(R.string.ledger_list_title),
         style = MaterialTheme.typography.titleMedium,
     )
+
+    if (unreadableEntries > 0) {
+        // 说清楚三件事：有几条、为什么、以及它们不会让合计变少
+        Text(
+            text = stringResource(R.string.ledger_unreadable_entries, unreadableEntries),
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
 
     if (showDeletedNotice) {
         // 删除的结果要说出来：条目从列表消失是「看得见的」，但「是不是真的删掉了」

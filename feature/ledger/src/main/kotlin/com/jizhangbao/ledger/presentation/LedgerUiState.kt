@@ -22,6 +22,13 @@ internal data class LedgerUiState(
     val occurredAt: Instant,
     val noteText: String,
     val entries: List<LedgerEntry>,
+    /**
+     * 库里存在、但**读不出来**的条数（`REQ-006/AC-3`）。
+     *
+     * 界面在它 > 0 时如实说明 —— 静默跳过会让用户以为"账目变少了"，
+     * 而真实情况是"有一条读不出来"。它们仍计入合计（`BR-5`）。
+     */
+    val unreadableEntries: Int,
     val amountError: AmountInputError?,
     /** 保存失败（含领域规则拒绝与存储失败），由界面映射成提示。 */
     val failure: SaveFailure?,
@@ -93,6 +100,7 @@ internal data class LedgerUiState(
             occurredAt = now,
             noteText = "",
             entries = emptyList(),
+            unreadableEntries = 0,
             amountError = null,
             failure = null,
             isSaving = false,
@@ -106,7 +114,7 @@ internal data class LedgerUiState(
     }
 }
 
-/** 保存失败的来源。界面据此选择提示文案。 */
+    /** 保存失败的来源。界面据此选择提示文案。 */
 internal sealed interface SaveFailure {
     /** 领域规则拒绝（例如没选分类） */
     data class Rejected(val error: com.jizhangbao.core.domain.DomainError) : SaveFailure
@@ -114,6 +122,15 @@ internal sealed interface SaveFailure {
     /** 备注过长 —— 在界面层先拦下，因为「输入太长」是正常路径而不是程序错误 */
     data object NoteTooLong : SaveFailure
 
-    /** 存储失败 */
+    /**
+     * **写入**失败（`REQ-006/BR-3`）。
+     *
+     * 与 [LoadFailed] 分开：说错方向的提示会让用户排查错地方 ——
+     * `T-013` 冒烟时列表读不出来，界面却说「这笔没有记上」，
+     * 用户会以为是自己刚才那次保存出了问题。
+     */
     data object Storage : SaveFailure
+
+    /** **读取**失败（列表或分类读不出来）。它跟"这笔有没有记上"无关。 */
+    data object LoadFailed : SaveFailure
 }
