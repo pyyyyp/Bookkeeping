@@ -41,15 +41,22 @@
 | Gradle | **不需要单独安装**——用仓库自带的 Wrapper（`gradlew`） |
 
 ```bash
-git clone https://github.com/pythonyunpeng-maker/Bookkeeping.git
+git clone https://github.com/pyyyyp/Bookkeeping.git
 cd Bookkeeping
 
 # local.properties 不入库，需自建（Windows 下用正斜杠更稳妥）
 #   sdk.dir=<你的 Android SDK 路径>
 
-./gradlew assembleDebug
+./gradlew assembleDebug            # Linux / macOS
+.\gradlew.bat assembleDebug        # Windows（PowerShell / cmd）
+
 # 产物：app/build/outputs/apk/debug/app-debug.apk
 ```
+
+> **Windows 用户注意**：本文档与 `AGENTS.md` 里多数命令写的是 `./gradlew`（bash 写法），
+> 在 PowerShell / cmd 里要换成 `.\gradlew.bat`。两者等价——用的是同一个 Wrapper。
+>
+> 这段步骤**在本仓库真实验证过**：在干净目录 clone 后照做，`BUILD SUCCESSFUL`。
 
 装 SDK 组件、Windows 上的注意事项、以及本地怎么跑与 CI 相同的门禁，
 见 [CONTRIBUTING.md](CONTRIBUTING.md)。构建手册（含踩过的坑）见

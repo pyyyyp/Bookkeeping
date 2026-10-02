@@ -33,6 +33,9 @@ sdkmanager --install "platform-tools" "platforms;android-37.0" "build-tools;37.0
 CI（`.github/workflows/ci.yml`）跑的就是下面这几条，**顺序也一样**。
 本地全绿而 CI 红，基本上只可能是环境差异（比如 SDK 组件没装齐）。
 
+> **Windows**：下面写的是 `./gradlew`（bash 写法），在 PowerShell / cmd 里换成
+> `.\gradlew.bat`。两者等价，用的是同一个 Wrapper。
+
 ```bash
 ./gradlew detekt                        # 静态分析（含风格与代码味道）
 ./gradlew lintDebug                     # Android Lint
