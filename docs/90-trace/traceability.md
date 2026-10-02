@@ -89,7 +89,7 @@
 | 限界上下文数 | 5（Ledger / Worklog / Payroll / Calendar / Insight） |
 | 工程任务数 | 10（**T-001 ~ T-008 全部完成**；T-009 待实现；T-010 进行中） |
 | 已建工程模块数 | **11**（1 个 Kotlin JVM + 9 个 Android Library + 1 个 Application） |
-| 领域层测试数 | 14（全绿，2026-10-02 强制重跑核实） |
+| 领域层测试数 | **25**（全绿；`T-009` 第一段新增 `SignedMoney` 6 条 + `MonthlyTotals` 5 条） |
 | Android 侧测试数 | **80**（JVM：6 条架构断言 + 74 条 Ledger 业务测试）+ **7** 条仪器化 DAO 测试（真库，经 `am instrument` 运行） |
 | 可交付产物 | `app-debug.apk`（12.02 MB，已在模拟器上启动并冒烟验证） |
 
