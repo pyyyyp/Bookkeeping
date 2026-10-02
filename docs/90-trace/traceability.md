@@ -23,19 +23,23 @@
 
 | 问题 | 影响需求 | 影响代码位置 | 状态 |
 |---|---|---|---|
-| Q-007 自用侧载 or 上架 | 全部 | 权限声明、`nfr.md` | 🔴 阻塞 Q-001/Q-002 |
-| Q-001 自动记消费的来源 | 待建 REQ-001 | `feature:ledger` 的外部适配层（ACL） | 🔴 阻塞需求 |
-| Q-003 「按比例」的含义 | 待建 REQ-00x | 决定 `feature:allocation` 是否存在 | 🔴 阻塞需求 |
-| Q-002 定位记工时的自动化程度 | 待建 REQ-00x | `feature:worklog` 的后台服务与权限 | 🔴 阻塞需求 |
-| Q-004 工资计算规则 | 待建 REQ-00x | `feature:payroll` 的 `Payslip` 不变式 | 🟡 阻塞实现 |
-| Q-005 多账户 / 多币种 | — | `Account` 聚合、`Money` 值对象 | 🟡 阻塞实现 |
-| Q-006 备份与导出 | — | `core:data` | 🟡 阻塞实现 |
-| Q-008 记账日 | — | `LedgerEntry.bookingDate` | 🟢 可延后 |
-| Q-009 固定班次 | — | `WorkSession` 不变式 | 🟢 可延后 |
-| Q-010 去重策略 | — | `LedgerEntry` 唯一性 | 🟢 依赖 Q-001 |
-| Q-011 识别失败处理 | — | 待确认队列 UI | 🟢 依赖 Q-001 |
+| Q-015 缺勤与法定节假日带薪 | 待建 REQ-00x | `feature:payroll` 的 `DailyIncome` 公式 | 🔴 阻塞需求 |
+| Q-016 节假日数据来源 | 待建 REQ-00x | `feature:calendar` 的数据层（ACL） | 🔴 阻塞需求 |
+| Q-017 加班时长门槛 | 待建 REQ-00x | `feature:payroll` 与 `feature:worklog` 的接口 | 🟡 |
+| Q-018 日薪取整 | — | `DailyRate` 计算 | 🟡 |
+| Q-019 月薪生效日期 | — | `MonthlySalary` 聚合 | 🟡 |
+| Q-004 结算周期 | 待建 REQ-00x | `Payslip` 不变式 | 🟡 |
+| Q-005 多账户 / 多币种 | — | `Account` 聚合、`Money` 值对象 | 🟡 |
+| Q-006 备份与导出 | — | `core:data` | 🟡 |
+| Q-010 去重策略 | — | `LedgerEntry` 唯一性 | 🟡 |
+| Q-011 识别失败处理 | — | 待确认队列 UI | 🟡 |
+| Q-013 通知权限降级 | — | 权限引导 UI | 🟡 |
+| Q-008 记账日 | — | `LedgerEntry.bookingDate` | 🟢 |
+| Q-009 固定班次 | — | `WorkSession` 不变式 | 🟢 |
+| Q-014 围栏提醒未响应 | — | `WorkSession` 生命周期 | 🟢 |
 
-> **注意**：上表全部问题都**不阻塞 T-001（工程脚手架）**。T-001 只建构建骨架与架构校验，不含业务规则。
+> **注意**：上表问题**均不阻塞 T-002 ~ T-005**（工程基础设施）。
+> 它们阻塞的是业务需求与领域模型（REQ / `*-model.md`）。
 
 ## ADR → 影响面
 
@@ -55,9 +59,9 @@
 |---|---|
 | 需求总数 | 0（待 Q-012/Q-004 澄清后建立） |
 | 已完成的 AC 数 | 0 |
-| 未决问题数 | 11（1 红 / 6 黄 / 4 绿） |
+| 未决问题数 | 14（2 红 / 9 黄 / 3 绿） |
 | 已接受的 ADR 数 | 1 |
-| 限界上下文数 | 4（Ledger / Worklog / Payroll / Insight） |
+| 限界上下文数 | 5（Ledger / Worklog / Payroll / Calendar / Insight） |
 | 工程任务数 | 5（T-001 已完成；T-002 ~ T-005 待开始） |
 | 已建工程模块数 | 1（`:core:domain`） |
 | 领域层测试数 | 14（全绿） |
