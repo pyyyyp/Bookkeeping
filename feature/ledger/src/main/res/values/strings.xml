@@ -19,6 +19,12 @@
     <string name="ledger_confirm">确定</string>
     <string name="ledger_cancel">取消</string>
 
+    <!-- 删除：物理删除不可恢复（ADR-0005），所以对话框必须把后果说清楚 -->
+    <string name="ledger_delete">删除</string>
+    <string name="ledger_delete_title">删除这条记录？</string>
+    <string name="ledger_delete_message">删除后无法恢复。</string>
+    <string name="ledger_entry_deleted">已删除，这条记录不在账本里了。</string>
+
     <string name="ledger_error_amount_empty">请输入金额</string>
     <string name="ledger_error_amount_not_a_number">金额只能是数字</string>
     <string name="ledger_error_amount_too_many_decimals">金额最多两位小数</string>

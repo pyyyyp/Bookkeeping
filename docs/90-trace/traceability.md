@@ -17,8 +17,8 @@
 | REQ-001 | AC-5 补记（发生时间可改过去） | Ledger | `LedgerEntry` | T-007 | f470153…a67cb1f | 冒烟 `t007-11`；`RecordLedgerEntryUseCaseTest`（补记保持过去时间） | ✅ |
 | REQ-001 | AC-6 备注可选 | Ledger | `LedgerEntry` | T-007 | f470153…a67cb1f | `LedgerEntryTest` / `NoteTest`（含 200 码点边界）；冒烟三笔均无备注 | ✅ |
 | REQ-001 | AC-7 列表按发生时间倒序 | Ledger | `LedgerEntry` | T-007 | f470153…a67cb1f | 冒烟 `t007-11`：最后录入的 10-01 排在**最下**；顺序由 DAO 的 `ORDER BY` 保证 | ✅ |
-| REQ-001 | AC-8 删除需二次确认，取消则不删 | Ledger | `LedgerEntry` | T-008 | - | - | ⏳ 待实现 |
-| REQ-001 | AC-9 确认删除后条目不再存在 | Ledger | `LedgerEntry` | T-008 | - | - | ⏳ 待实现 |
+| REQ-001 | AC-8 删除需二次确认，取消则不删 | Ledger | `LedgerEntry` | T-008 | 见本轮提交 | 冒烟 `t008-2` / `t008-3`（取消后与点击前**逐像素一致**）；`DeleteLedgerEntryUseCaseTest` | ✅ |
+| REQ-001 | AC-9 确认删除后条目不再存在 | Ledger | `LedgerEntry` | T-008 | 见本轮提交 | 冒烟 `t008-4` / `t008-5`（重启后仍不在）+ **数据库直查只剩 2 行**；`DeleteLedgerEntryUseCaseTest` | ✅ |
 | REQ-001 | AC-10 条目持久化（本机 SSOT） | Ledger | `LedgerEntry` | T-007 | f470153…a67cb1f | 冒烟 `t007-5`：`am force-stop` 后重启条目仍在 | ✅ |
 
 **状态图例**：✅ 已完成 / 🚧 进行中 / ⏳ 待开始 / ❌ 已废弃
@@ -76,14 +76,14 @@
 | 指标 | 数值 |
 |---|---|
 | 需求总数 | **1**（`REQ-001` 手动记录一笔账目条目） |
-| 已完成的 AC 数 | **8 / 10**（`REQ-001` 的 AC-1 ~ AC-7、AC-10；AC-8 / AC-9 属 `T-008`） |
+| 已完成的 AC 数 | **10 / 10**（`REQ-001` 的全部验收标准都有提交与测试证据） |
 | 未决问题数 | 15（2 红 / 10 黄 / 3 绿；`Q-005` 已关闭，本轮新增 `Q-021`） |
 | 已接受的 ADR 数 | **7**（ADR-0006 跨模块错误类型、ADR-0007 数据层归属） |
 | 限界上下文数 | 5（Ledger / Worklog / Payroll / Calendar / Insight） |
 | 工程任务数 | 6（**T-001 / T-002 / T-003 / T-004 / T-005 / T-006 全部完成**） |
 | 已建工程模块数 | **11**（1 个 Kotlin JVM + 9 个 Android Library + 1 个 Application） |
 | 领域层测试数 | 14（全绿，2026-10-02 强制重跑核实） |
-| Android 侧测试数 | **57**（6 条架构断言 + 51 条 Ledger 业务测试） |
+| Android 侧测试数 | **61**（6 条架构断言 + 55 条 Ledger 业务测试） |
 | 可交付产物 | `app-debug.apk`（11.65 MB，已在模拟器上启动验证） |
 
 ## 工程任务进度
@@ -99,7 +99,7 @@
 | T-005 | 开源配套（LICENSE / README / 隐私声明） | ✅ **已完成**（已推送；clone 构建与 CI 均验证通过） | 见本轮提交 |
 | T-006 | 接入 detekt 静态分析（用户在 T-003 后追加的决定） | ✅ **已完成** | 见本轮提交 |
 | T-007 | 记一笔账目条目（端到端：领域 → 数据 → 用例 → ViewModel → Compose → DI） | ✅ **已完成**（模拟器冒烟 8 条 AC 通过） | 见本轮提交 |
-| T-008 | 账本列表与删除条目 | ⏳ 待开始 | — |
+| T-008 | 账本列表与删除条目 | ✅ **已完成**（含数据库旁证） | 见本轮提交 |
 
 **T-001 验收证据**：`:core:domain:build` BUILD SUCCESSFUL；
 14 个测试 0 失败；`compileClasspath` 中 Android 条目数为 **0**（R3 在依赖层面得证）。

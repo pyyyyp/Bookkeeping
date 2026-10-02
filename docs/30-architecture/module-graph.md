@@ -147,5 +147,8 @@ core:data/          ← 跨上下文共享的数据基础设施（TypeConverter 
 >
 > **detekt 用 light 模式**（不启用类型解析）：AGP 9 内置 Kotlin 下类型解析看不到生成类
 > （`BuildConfig` / `R` / KSP 产物，上游 #9402），启用会误报。
-> 配置在 `config/detekt/detekt.yml`，**偏离默认规则必须写明理由**
-> （目前只有 1 条：Compose 的 `@Composable` 函数必须 PascalCase）。
+> 配置在 `config/detekt/detekt.yml`，**偏离默认规则必须写明理由**（目前 2 条）：
+> 1. Compose 的 `@Composable` 函数是 PascalCase（默认命名规则不知道这条约定，会全部误报）；
+> 2. `@HiltViewModel` 的类不按「函数个数」计数（T-008）：状态持有者天然是
+>    「每个用户动作一个方法」，阈值对这类类不适用；**其余类仍受默认阈值约束**，
+>    臃肿的 ViewModel 仍会被方法长度 / 圈复杂度 / 参数个数拦下。

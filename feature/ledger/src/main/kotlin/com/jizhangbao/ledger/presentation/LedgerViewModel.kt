@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.jizhangbao.core.domain.DomainError
 import com.jizhangbao.core.domain.EntryDirection
 import com.jizhangbao.core.domain.Outcome
+import com.jizhangbao.ledger.application.DeleteLedgerEntryUseCase
 import com.jizhangbao.ledger.application.LoadRecentEntriesUseCase
 import com.jizhangbao.ledger.application.RecordLedgerEntryUseCase
 import com.jizhangbao.ledger.domain.model.CategoryCatalog
 import com.jizhangbao.ledger.domain.model.CategoryId
+import com.jizhangbao.ledger.domain.model.LedgerEntry
 import com.jizhangbao.ledger.domain.model.Note
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +39,7 @@ import javax.inject.Inject
 internal class LedgerViewModel @Inject constructor(
     private val recordEntry: RecordLedgerEntryUseCase,
     private val loadEntries: LoadRecentEntriesUseCase,
+    private val deleteEntry: DeleteLedgerEntryUseCase,
     clock: Clock,
 ) : ViewModel() {
 
@@ -81,6 +84,39 @@ internal class LedgerViewModel @Inject constructor(
 
     fun onFailureShown() {
         _uiState.update { it.copy(failure = null) }
+    }
+
+    /**
+     * 用户点了某一条的「删除」——**先把确认交给用户，不碰数据**。
+     *
+     * `AC-8` 的「取消则不删」就是靠这个状态实现的：在 [onDeleteConfirmed] 之前，
+     * 仓储一次都不会被调用。
+     */
+    fun onDeleteRequested(entry: LedgerEntry) {
+        _uiState.update { it.copy(pendingDelete = entry, failure = null, deletedNotice = false) }
+    }
+
+    /** 用户取消 —— 清掉待确认项，什么都不删。 */
+    fun onDeleteCancelled() {
+        _uiState.update { it.copy(pendingDelete = null) }
+    }
+
+    /** 用户确认 —— 真正删除（物理删除，不可恢复，见 `ADR-0005`）。 */
+    fun onDeleteConfirmed() {
+        val target = _uiState.value.pendingDelete ?: return
+
+        viewModelScope.launch {
+            when (val result = deleteEntry(target.id)) {
+                is Outcome.Ok -> {
+                    _uiState.update { it.copy(pendingDelete = null, deletedNotice = true) }
+                    refreshEntries()
+                }
+                is Outcome.Err -> _uiState.update {
+                    // 删除失败时**保留** pendingDelete：让用户能重试，而不是以为删掉了
+                    it.copy(failure = result.error.asSaveFailure())
+                }
+            }
+        }
     }
 
     fun onSave() {

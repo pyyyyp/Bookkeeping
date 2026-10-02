@@ -27,6 +27,9 @@ internal class FakeLedgerEntryRepository : LedgerEntryRepository {
     /** 非 null 时 `recent` 直接返回它，用于制造失败场景。 */
     var recentOutcome: Outcome<List<LedgerEntry>>? = null
 
+    /** 非 null 时 `remove` 直接返回它，用于制造失败场景。 */
+    var removeOutcome: Outcome<Unit>? = null
+
     var addCallCount = 0
         private set
 
@@ -37,6 +40,7 @@ internal class FakeLedgerEntryRepository : LedgerEntryRepository {
     }
 
     override suspend fun remove(id: LedgerEntryId): Outcome<Unit> {
+        removeOutcome?.let { return it }
         val removed = entries.removeAll { it.id == id }
         return if (removed) Outcome.Ok(Unit) else Outcome.Err(LedgerError.EntryNotFound)
     }

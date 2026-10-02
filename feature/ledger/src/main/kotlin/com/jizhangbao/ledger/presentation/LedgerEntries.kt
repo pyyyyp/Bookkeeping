@@ -7,7 +7,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -24,13 +26,30 @@ private val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-M
  *
  * 顺序由 SQL 保证（`ORDER BY occurredAtEpochMilli DESC`）——
  * 界面**不重新排序**，否则「显示的顺序」与「数据的顺序」会变成两套规则。
+ *
+ * 每行右侧有删除入口（`AC-8` `AC-9`）。它调用的 [onDelete] **只表达意图**：
+ * 真正的删除要等用户在确认对话框里点了「删除」。
  */
 @Composable
-internal fun EntriesSection(entries: List<LedgerEntry>, zone: ZoneId) {
+internal fun EntriesSection(
+    entries: List<LedgerEntry>,
+    zone: ZoneId,
+    showDeletedNotice: Boolean,
+    onDelete: (LedgerEntry) -> Unit,
+) {
     Text(
         text = stringResource(R.string.ledger_list_title),
         style = MaterialTheme.typography.titleMedium,
     )
+
+    if (showDeletedNotice) {
+        // 删除的结果要说出来：条目从列表消失是「看得见的」，但「是不是真的删掉了」
+        // 需要一个明确的确认（尤其当列表本来就有很多条时）
+        Text(
+            text = stringResource(R.string.ledger_entry_deleted),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
 
     if (entries.isEmpty()) {
         Text(
@@ -40,27 +59,33 @@ internal fun EntriesSection(entries: List<LedgerEntry>, zone: ZoneId) {
     } else {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(items = entries, key = { it.id.value }) { entry ->
-                EntryRow(entry = entry, zone = zone)
+                EntryRow(entry = entry, zone = zone, onDelete = { onDelete(entry) })
             }
         }
     }
 }
 
 @Composable
-private fun EntryRow(entry: LedgerEntry, zone: ZoneId) {
+private fun EntryRow(entry: LedgerEntry, zone: ZoneId, onDelete: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = stringResource(entry.direction.labelRes()) + "  " + categoryDisplayName(entry),
             style = MaterialTheme.typography.bodyLarge,
         )
-        Text(
-            text = entry.amount.toString() + "   " +
-                entry.occurredAt.atZone(zone).toLocalDate().format(DATE_FORMAT),
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = entry.amount.toString() + "   " +
+                    entry.occurredAt.atZone(zone).toLocalDate().format(DATE_FORMAT),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            TextButton(onClick = onDelete) {
+                Text(stringResource(R.string.ledger_delete))
+            }
+        }
     }
 }
 
