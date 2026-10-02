@@ -1,8 +1,10 @@
 package com.jizhangbao.buildlogic
 
+import dev.detekt.gradle.extensions.DetektExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ProjectDependency
+import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.register
 
 /**
@@ -24,6 +26,9 @@ import org.gradle.kotlin.dsl.register
  * | R5 / R6 / R10 层与包规则 | Konsist 断言（见 ArchitectureTest） | ❌ 不在本插件 |
  * | R11 禁用 api(...) | 代码评审 | ❌ |
  * | R12 各 feature 可独立构建 | CI（T-004） | ❌ |
+ *
+ * 另外本插件还统一应用并配置 **detekt**（静态分析，T-006）——它不对应 R1–R12 中的任何一条，
+ * 但同属「机器可强制的工程规则」，放在同一处权威配置里。
  */
 class ArchitectureVerificationPlugin : Plugin<Project> {
 
@@ -59,6 +64,39 @@ class ArchitectureVerificationPlugin : Plugin<Project> {
             if (this == rootProject) return@allprojects
             tasks.matching { it.name == "check" }.configureEach {
                 dependsOn(verifyDomainPurity, checkModuleDependencies)
+            }
+        }
+
+        configureDetekt()
+    }
+
+    /**
+     * 把 detekt（静态分析，T-006）统一应用到所有模块。
+     *
+     * 为什么在这里应用而不是各模块自己声明：与其它校验一样，配置要有一处权威。
+     * 各模块的 `build.gradle.kts` 因此保持 3 行。
+     *
+     * 为什么**不按「有没有 src 目录」过滤**：那样会让行为取决于**未入库的空目录**
+     * （git 不跟踪空目录），于是本地与全新 clone 的应用范围不一致。
+     * 统一应用的成本只是几个 `NO-SOURCE` 任务，换来确定性。
+     *
+     * ⚠️ **不启用类型解析**：AGP 9 内置 Kotlin 下 detekt 的类型解析看不到生成类
+     * （`BuildConfig` / `R` / KSP 产物，上游 issue #9402 未修），启用会误报。
+     * 本插件只配置普通 `detekt`（source set 级、light 模式）；带类型解析的
+     * `detektMain` / `detekt<Variant>` 任务保持可用，但**故意不接进门禁**。
+     */
+    private fun Project.configureDetekt() {
+        val detektConfigFile = rootProject.layout.projectDirectory.file("config/detekt/detekt.yml")
+
+        allprojects {
+            if (this == rootProject) return@allprojects
+
+            pluginManager.apply("dev.detekt")
+            extensions.configure<DetektExtension> {
+                // 以官方默认规则为基线；偏离只写在 config 文件里，且必须带理由
+                buildUponDefaultConfig.set(true)
+                config.setFrom(detektConfigFile)
+                parallel.set(true)
             }
         }
     }
