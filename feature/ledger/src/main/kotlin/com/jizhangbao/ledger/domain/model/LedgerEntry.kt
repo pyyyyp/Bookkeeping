@@ -46,6 +46,40 @@ class LedgerEntry private constructor(
         "LedgerEntry(${id.value}, $direction, $amount, ${categoryId.value}, " +
             "occurredAt=$occurredAt, bookedAt=$bookedAt, note=${note?.text})"
 
+    /**
+     * 用新的字段值**替换**这条记录（`REQ-003`）。
+     *
+     * ## 三个保持不变
+     *
+     * - **身份**（`id`）：它就是"同一条记录"。换 id 等于删一条加一条（`BR-4`）。
+     * - **录入时间**（`bookedAt`）：它回答"这笔什么时候被记进账本"，
+     *   那是已经发生的事实，不会因为后来改了内容而改变——否则它不再有信息量（`BR-3`）。
+     * - **不可变性**：返回**新实例**，本实例一字不动。所以"校验失败时原条目不变"
+     *   不是靠回滚，而是根本改不动（`AC-3`）。
+     *
+     * ## 可以改发生时间
+     *
+     * `BR-2` 已定案：这个功能最主要的用例就是"补记时日期选错"。
+     * v1 没有账户、没有结算周期，也就没有会把条目冻结的下游约束。
+     *
+     * 校验与 [record] 共用 [build] —— 两条路径各写一遍，迟早会漂移。
+     */
+    fun revise(
+        direction: EntryDirection,
+        amount: Money,
+        categoryId: CategoryId?,
+        occurredAt: Instant,
+        note: Note?,
+    ): Outcome<LedgerEntry> = build(
+        direction = direction,
+        amount = amount,
+        categoryId = categoryId,
+        occurredAt = occurredAt,
+        bookedAt = bookedAt,
+        note = note,
+        id = id,
+    )
+
     companion object {
 
         /**
@@ -67,10 +101,35 @@ class LedgerEntry private constructor(
             note: Note? = null,
             bookedAt: Instant = Instant.now(),
             id: LedgerEntryId = LedgerEntryId.new(),
+        ): Outcome<LedgerEntry> = build(
+            direction = direction,
+            amount = amount,
+            categoryId = categoryId,
+            occurredAt = occurredAt,
+            bookedAt = bookedAt,
+            note = note,
+            id = id,
+        )
+
+        /**
+         * 记账（[record]）与修改（[revise]）**共用**的校验与构造。
+         *
+         * 抽出来的理由不是"少写几行"，而是**规则只有一份**：
+         * 两条路径各写一遍校验，迟早会漂移——其中一条会漏掉后来新增的规则（`REQ-003/BR-6`）。
+         *
+         * 两个 return，正好是 detekt 的 ReturnCount 上界。
+         * 注意：`categoryId` 必须先用局部 val 接住，`when` 的分支条件**不会**
+         * 让 Kotlin 对参数做智能转换（实测编译报错），而 `?:` 会。
+         */
+        private fun build(
+            direction: EntryDirection,
+            amount: Money,
+            categoryId: CategoryId?,
+            occurredAt: Instant,
+            bookedAt: Instant,
+            note: Note?,
+            id: LedgerEntryId,
         ): Outcome<LedgerEntry> {
-            // 两个 return，正好是 detekt 的 ReturnCount 上界。
-            // 注意：`categoryId` 必须先用局部 val 接住，`when` 的分支条件**不会**
-            // 让 Kotlin 对参数做智能转换（实测编译报错），而 `?:` 会。
             val category = categoryId ?: return Outcome.Err(LedgerError.CategoryRequired)
 
             return if (amount <= Money.ZERO) {

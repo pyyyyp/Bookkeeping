@@ -60,4 +60,18 @@ internal class FakeLedgerEntryDao : LedgerEntryDao {
             }
             .sumOf { it.amountCents }
     }
+
+    /**
+     * 按主键整行替换，返回受影响行数（0 = 不存在）。
+     *
+     * 同样**真的按存储的行算**：仓储的"0 行 → EntryNotFound"分支靠它才被测到。
+     * `@Update` 生成的 SQL 本身由 `androidTest` 的 `LedgerEntryDaoTest` 在真库验证。
+     */
+    override suspend fun update(entity: LedgerEntryEntity): Int {
+        failure?.let { throw it }
+        val index = inserted.indexOfFirst { it.id == entity.id }
+        if (index < 0) return 0
+        inserted[index] = entity
+        return 1
+    }
 }

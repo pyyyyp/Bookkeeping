@@ -19,17 +19,23 @@
 
 ## 变更清单
 
-- [ ] 领域：`LedgerEntry.revise(...)` —— 与 `record()` **共用**同一套校验，返回**同 id** 的新实例
-      （`BR-4`：身份不变；`BR-6`：校验只有一份）
-- [ ] 领域测试：改字段成功 / 四类非法输入被拒 / `bookedAt` 与 `id` 保持不变
-- [ ] 数据层：`LedgerEntryDao.update(...)`（影响行数语义）+ 仓储 `update(entry)`
+- [x] 领域：`LedgerEntry.revise(...)` —— 与 `record()` **共用**私有 `build()` 校验，
+      返回**同 id** 的新实例（`BR-4`：身份不变；`BR-6`：校验只有一份）
+- [x] 领域测试：`LedgerEntryReviseTest` **8 条**（改字段 / 可改发生时间 / 身份与 `bookedAt` 不变 /
+      金额为 0 被拒且原实例不动 / 与 `record` 给同样的 `CategoryRequired` / 可清空备注 / 可换方向）
+- [x] 数据层：`LedgerEntryDao.update`（`@Update`，列清单由 Room 生成）+ 仓储 `update(entry)`
       + `LedgerEntryRepository` 接口新增方法
-- [ ] 数据层测试：Fake DAO（映射与 0 行→`EntryNotFound`）+ **真库**测试（`UPDATE` 的影响行数）
-- [ ] 用例：`ReviseLedgerEntryUseCase`（`BR-5`：不存在时返回 `EntryNotFound`）+ 测试
+- [x] 数据层测试：`LedgerEntryRepositoryUpdateTest` **3 条**（替换成功 / **0 行 → `EntryNotFound` 且不插入** /
+      存储失败）。⚠️ **真库的 `@Update` 断言还没写**（见下方"下一步"）
+- [x] 用例：`ReviseLedgerEntryUseCase`（先让聚合校验，再落库）+ `ReviseLedgerEntryUseCaseTest` **7 条**
+      （含"校验失败时仓储一次都没被调用"与"已不存在时不新建"）
+- [x] **反向验证**：把仓储的"0 行 → `EntryNotFound`"改成无条件成功 →
+      **恰好那一条**测试失败（其余 9 条通过）→ 还原
 - [ ] ViewModel：进入/退出编辑态、载入既有值、保存走 `update`、修订号 +1（`BR-7`）
 - [ ] ViewModel 测试（含"取消编辑什么都不变"与"编辑失败时原条目不变"）
 - [ ] 界面：列表行上的编辑入口 + 表单标题/按钮反映"正在编辑" + 取消
 - [ ] 冒烟：改金额/分类/日期 → 列表更新 → 合计更新 → 重启仍在；取消不改动
+- [ ] 真库 DAO 测试补 `@Update` 的两条断言（存在 → 1；不存在 → 0）
 
 ## 验收
 

@@ -30,13 +30,38 @@ internal class FakeLedgerEntryRepository : LedgerEntryRepository {
     /** 非 null 时 `remove` 直接返回它，用于制造失败场景。 */
     var removeOutcome: Outcome<Unit>? = null
 
+    /** 非 null 时 `update` 直接返回它，用于制造失败场景。 */
+    var updateOutcome: Outcome<Unit>? = null
+
     var addCallCount = 0
+        private set
+
+    var updateCallCount = 0
         private set
 
     override suspend fun add(entry: LedgerEntry): Outcome<Unit> {
         addCallCount++
         if (addOutcome is Outcome.Ok) entries += entry
         return addOutcome
+    }
+
+    override suspend fun update(entry: LedgerEntry): Outcome<Unit> {
+        updateCallCount++
+        val forced = updateOutcome
+        // 用 when + 单个 return：detekt 的 ReturnCount 上限是 2，而这里本来有 3 条路径
+        return when {
+            forced != null -> forced
+            else -> {
+                val index = entries.indexOfFirst { it.id == entry.id }
+                // 语义与真实现一致：不存在的条目**不插入**，返回"没找到"
+                if (index < 0) {
+                    Outcome.Err(LedgerError.EntryNotFound)
+                } else {
+                    entries[index] = entry
+                    Outcome.Ok(Unit)
+                }
+            }
+        }
     }
 
     override suspend fun remove(id: LedgerEntryId): Outcome<Unit> {

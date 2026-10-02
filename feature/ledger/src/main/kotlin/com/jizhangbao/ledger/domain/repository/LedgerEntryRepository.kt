@@ -30,6 +30,15 @@ interface LedgerEntryRepository {
 
     suspend fun add(entry: LedgerEntry): Outcome<Unit>
 
+    /**
+     * 用 `entry`（同标识）**替换**账本里已有的那条（`REQ-003`）。
+     *
+     * 不存在时返回 [com.jizhangbao.ledger.domain.error.LedgerError.EntryNotFound]，
+     * 与 [remove] 一致的「影响行数为 0」语义：**不**静默插入一条新的
+     * （`REQ-003/BR-5`——悄悄插入会让用户以为改动生效了）。
+     */
+    suspend fun update(entry: LedgerEntry): Outcome<Unit>
+
     suspend fun remove(id: LedgerEntryId): Outcome<Unit>
 
     /** 最近 [limit] 条，**按发生时间倒序**（`REQ-001/AC-7`）。 */

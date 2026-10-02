@@ -31,6 +31,19 @@ internal class LedgerEntryRepositoryImpl @Inject constructor(
     override suspend fun add(entry: LedgerEntry): Outcome<Unit> =
         storageOutcome { dao.insert(LedgerEntryMapper.toEntity(entry)) }
 
+    override suspend fun update(entry: LedgerEntry): Outcome<Unit> {
+        val updated = storageOutcome { dao.update(LedgerEntryMapper.toEntity(entry)) }
+
+        return when (updated) {
+            is Outcome.Err -> updated
+            // 与 remove 同一套语义：0 行 = 这条已经不在账本里了（BR-5）。
+            // 注意这里**不能**退化成 insert：那会让一条已被删除的条目复活
+            is Outcome.Ok -> {
+                if (updated.value == 0) Outcome.Err(LedgerError.EntryNotFound) else Outcome.Ok(Unit)
+            }
+        }
+    }
+
     override suspend fun remove(id: LedgerEntryId): Outcome<Unit> {
         val deleted = storageOutcome { dao.deleteById(id.value) }
 
