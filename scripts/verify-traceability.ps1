@@ -202,6 +202,16 @@ foreach ($file in $requirementFiles) {
         foreach ($m in [regex]::Matches($line, '^#{2,4}\s+(AC-\d+)')) { [void]$acs.Add($m.Groups[1].Value) }
     }
 
+    # 守卫：一个需求文件解析出 0 条 AC 时**直接失败**。
+    # 起因是真实踩过的坑：REQ-002 第一版把 AC 写成表格（不是标题），
+    # 正则一条都没匹配到 —— 规则 2 于是**静默跳过整个文件**，
+    # 报告里只是"检查 AC 10 条"看起来很正常。校验漏检比校验不存在更危险。
+    if ($acs.Count -eq 0) {
+        Add-Violation '规则2' "docs/10-requirements/$($file.Name)" `
+            "没有解析出任何 AC：标题必须是 '### AC-n <标题>'（模板见 _TEMPLATE-REQ.md）。注意脚本不会因为格式错误而跳过检查"
+        continue
+    }
+
     foreach ($ac in $acs) {
         $acChecked++
         $registered = $false

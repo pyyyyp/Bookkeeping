@@ -1,0 +1,78 @@
+# T-009 本月收支合计（Insight v0）
+
+- 状态: 待开始
+- 需求: `REQ-002`
+- 上下文: Insight（读模型）+ Ledger（提供端口实现）
+- 影响聚合: 无（读模型没有聚合，见 `docs/20-domain/insight-model.md`）
+- 依赖: `T-007`（条目数据）、`ADR-0008`（跨上下文读通路）
+- 分支: `feat/T-009-monthly-totals`
+- 预估: 1 轮 | 实际:
+
+> **一个任务 = 一个分支 = 一组内聚提交**，且必须能独立构建通过。
+
+## 目标
+
+记账界面上一眼看到**当月花了多少、挣了多少、还剩多少**，并能翻看上一个月。
+交付后 `REQ-002` 的 7 条验收标准应全部有证据。
+
+> **为什么从 Insight 起手而不是做图表**：合计是"最少但最有用"的统计。
+> 没有它，用户要自己把列表加一遍；有了它，后面的分类占比、趋势图才有落点。
+
+## 变更清单
+
+- [ ] `:core:domain`：`SignedMoney` 值对象（带符号的差额，**不改 `Money` 的非负性**）
+- [ ] `:core:domain`：`MonthlyTotals`（income / expense / net，net 由前两者算出）
+- [ ] `:core:domain`：`LedgerTotalsReader` 端口（`ADR-0008`）
+- [ ] `:feature:ledger`：端口实现 —— `LedgerEntryDao` 的按月聚合查询（`SUM` + 条件）
+- [ ] `:feature:insight`：`LoadMonthlyTotalsUseCase`（`YearMonth` → `TimeRange`，本机时区半开区间）
+- [ ] `:feature:insight`：ViewModel + UiState（当前月、合计、月份切换）
+- [ ] `:app`：DI 装配（端口 ← Ledger 的实现）
+- [ ] 界面：在记账界面顶部（标题下方）显示三项合计 + 上/下月切换
+- [ ] 保存 / 删除后合计立即刷新
+- [ ] 冒烟：记一笔 → 合计变化 → 删除 → 合计回退 → 翻到上一月看到该月的值
+
+## 验收
+
+> 只能**引用** `REQ-002` 里的 AC 编号，不在这里重新定义。
+
+- [ ] `REQ-002/AC-1` 三项合计数值正确 —— 验证：自动化（用例测试 + Fake 端口）
+- [ ] `REQ-002/AC-2` 结余为负时负号可见 —— 验证：自动化（`SignedMoney.toString()` 的测试）
+- [ ] `REQ-002/AC-3` 空月显示 `¥0.00` 与提示 —— 验证：自动化 + 冒烟
+- [ ] `REQ-002/AC-4` 记一笔后合计立即更新 —— 验证：**手工冒烟**（界面状态刷新）
+- [ ] `REQ-002/AC-5` 删一笔后合计立即回退 —— 验证：**手工冒烟**
+- [ ] `REQ-002/AC-6` 可翻看上一个月并回到当月 —— 验证：自动化（年月换算）+ 冒烟
+- [ ] `REQ-002/AC-7` 按**发生时间**归属月份（补记算在发生的那个月）—— 验证：自动化（端口查询的 Fake）+ 冒烟
+
+## 测试清单
+
+- [ ] `MonthlyTotalsTest.`结余为负时是 SignedMoney 而不是 Money``
+- [ ] `SignedMoneyTest.`负数的字符串带负号``
+- [ ] `LoadMonthlyTotalsUseCaseTest.`月份被换算成本机时区的半开区间``
+- [ ] `LoadMonthlyTotalsUseCaseTest.`跨年时上一月是去年 12 月``
+- [ ] `LoadMonthlyTotalsUseCaseTest.`空月返回零而不是错误``
+- [ ] `LedgerTotalsReaderImplTest.`（Fake DAO）按发生时间汇总，与录入时间无关``
+
+## 实现顺序
+
+```
+1. :core:domain 的值对象 + 端口（+ 测试）      ← 先红后绿
+2. :feature:ledger 的端口实现（+ Fake DAO 测试）
+3. :feature:insight 的用例（+ 测试）
+4. ViewModel + UiState
+5. Compose：合计区 + 月份切换
+6. DI 装配
+7. 冒烟（记一笔 / 删一笔 / 翻月）
+```
+
+## 完成情况
+
+- 提交:
+- 未决: `Q-021`（未来时间的账）本卡不处理，见 `REQ-002/BR-7`
+- 备注: **不要**顺手加分类占比、趋势图、预算提醒——那些是各自的新需求。
+  也**不要**为了"性能"先加缓存或汇总表（`ADR-0008` 的复审条件里有说明）
+
+## 豁免项
+
+| 豁免内容 | 原因 | 批准人 | 跟踪任务 |
+|---|---|---|---|
+| | | | |
