@@ -26,6 +26,15 @@ internal data class LedgerUiState(
     /** 保存失败（含领域规则拒绝与存储失败），由界面映射成提示。 */
     val failure: SaveFailure?,
     val isSaving: Boolean,
+    /**
+     * 等待用户二次确认的那一条。
+     *
+     * 删除是**物理删除且不可恢复**（`ADR-0005`），所以「确认」这一步必须由状态显式表达：
+     * 只要它非空，界面就必须拦着不让删；用户取消时它被清空，**仓储一次都不会被调用**。
+     */
+    val pendingDelete: LedgerEntry?,
+    /** 刚刚删掉了一条 —— 用于给出反馈，不让操作结果静默。 */
+    val deletedNotice: Boolean,
 ) {
 
     /** 当前方向下可选的分类（预置清单已按方向过滤）。 */
@@ -47,6 +56,8 @@ internal data class LedgerUiState(
             amountError = null,
             failure = null,
             isSaving = false,
+            pendingDelete = null,
+            deletedNotice = false,
         )
     }
 }

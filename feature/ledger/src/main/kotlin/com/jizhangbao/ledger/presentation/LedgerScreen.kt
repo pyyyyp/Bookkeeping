@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,6 +53,9 @@ internal fun LedgerRoute(viewModel: LedgerViewModel) {
         onOccurredAtChange = viewModel::onOccurredAtChange,
         onNoteChange = viewModel::onNoteChange,
         onSave = viewModel::onSave,
+        onDeleteRequested = viewModel::onDeleteRequested,
+        onDeleteConfirmed = viewModel::onDeleteConfirmed,
+        onDeleteCancelled = viewModel::onDeleteCancelled,
     )
 }
 
@@ -71,6 +75,9 @@ internal fun LedgerScreen(
     onOccurredAtChange: (Instant) -> Unit,
     onNoteChange: (String) -> Unit,
     onSave: () -> Unit,
+    onDeleteRequested: (com.jizhangbao.ledger.domain.model.LedgerEntry) -> Unit,
+    onDeleteConfirmed: () -> Unit,
+    onDeleteCancelled: () -> Unit,
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     val zone = remember { ZoneId.systemDefault() }
@@ -98,7 +105,12 @@ internal fun LedgerScreen(
 
             HorizontalDivider()
 
-            EntriesSection(entries = state.entries, zone = zone)
+            EntriesSection(
+                entries = state.entries,
+                zone = zone,
+                showDeletedNotice = state.deletedNotice,
+                onDelete = onDeleteRequested,
+            )
         }
     }
 
@@ -110,6 +122,40 @@ internal fun LedgerScreen(
             onDismiss = { showDatePicker = false },
         )
     }
+
+    // 二次确认：删除是物理删除且不可恢复（ADR-0005），所以这一步不是装饰
+    state.pendingDelete?.let { target ->
+        DeleteConfirmDialog(
+            onConfirm = onDeleteConfirmed,
+            onDismiss = onDeleteCancelled,
+        )
+    }
+}
+
+/**
+ * 删除前的二次确认。
+ *
+ * 刻意**不显示金额**：那句话会变成「删除 ¥12.50 这条吗」，
+ * 而对话框的作用是让人停一下，不是帮他确认细节——细节在列表里已经看过了。
+ * 重要的是把**后果**写清楚（不可恢复）。
+ */
+@Composable
+private fun DeleteConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ledger_delete_title)) },
+        text = { Text(stringResource(R.string.ledger_delete_message)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(R.string.ledger_delete))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.ledger_cancel))
+            }
+        },
+    )
 }
 
 /**
