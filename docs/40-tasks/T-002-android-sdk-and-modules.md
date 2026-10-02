@@ -1,11 +1,12 @@
 # T-002 Android SDK 环境与 Android 模块骨架
 
-- 状态: **进行中**（第一步「验证 AGP 可用性」已完成，其余模块待 ADR-0002 决策后继续）
+- 状态: **进行中**（第一档：工具链验证 ✅；第二档：11 个模块全部落地并产出真实 APK ✅；**仅剩真机启动验证待用户确认**）
 - 需求: —（工程基础设施）
 - 上下文: 全部
 - 依赖: T-001
 - 分支: `feat/T-002-android-modules`
-- 预估: 1 天 | 实际: 进行中
+- 预估: 1 天 | 实际: 第二档约 1 轮（含 5 次构建迭代与 1 次仓库外验证工程）
+- 相关决策: `ADR-0002`（路径迁移）、**`ADR-0003`（AGP 9 构建基线）**
 
 ## 目标
 
@@ -50,20 +51,46 @@ Solution: Remove the 'org.jetbrains.kotlin.android' plugin from this project's b
 
 ## 变更清单
 
+**第一档（工具链验证）**
+
 - [x] 安装 Android cmdline-tools（build 14742923），接受 licenses
 - [x] 安装 `platform-tools` / `platforms;android-36` / `build-tools;37.0.0`
 - [x] `:core:common` 模块 + 一个真实引用 Android API 的源文件
 - [x] `gradle/libs.versions.toml` 加入 agp / android-library / android-application
 - [x] 验证 `:core:common:assembleDebug` 通过
 - [x] 记录 AGP 9 破坏性变更与非 ASCII 路径问题
-- [ ] 新增 `ADR-0002` 决策（提议中，待用户裁决）
-- [ ] `build-logic` 约定插件（现在有 2 个模块，尚未到 6 个的临界点）
-- [ ] `:core:ui`（Compose 设计系统）
-- [ ] `:core:data`（Room / Retrofit / DataStore）
-- [ ] `:core:testing`（Fake / 测试数据构造器）
-- [ ] `:app`（Application + Compose 宿主）
-- [ ] `:feature:ledger` / `worklog` / `payroll` / `calendar` / `insight`
-- [ ] `docs/60-runbooks/build.md` 补齐「他人 clone 后如何构建」
+- [x] 新增 `ADR-0002` 决策并实施仓库迁移
+
+**第二档（模块骨架与 APK）**
+
+- [x] 核实全部待锁定版本（Compose BOM / Hilt / Room / KSP / coroutines / Retrofit / Coil / datastore / navigation / detekt / Konsist），回填 `tech-baseline.md`
+- [x] 补装 `platforms;android-37.0`（Compose BOM 2026.09 要求 compileSdk ≥ 37）
+- [x] 引入 `build-logic` 约定插件（`jizhangbao.android.library` / `jizhangbao.android.application`）
+- [x] `:core:ui`（Compose 设计系统，Material 3 默认色板 + `TODO(Q-020)`）
+- [x] `:core:data`（Room / KSP 装配完成；**不含 `@Database`**，理由见其构建脚本）
+- [x] `:core:testing`（模块骨架；**暂无源文件**，理由见其构建脚本）
+- [x] `:app`（`@HiltAndroidApp` + `MainActivity` + 占位首页 + 资源）
+- [x] `:feature:ledger` / `worklog` / `payroll` / `calendar` / `insight` 五个上下文模块骨架
+- [x] 新增 `ADR-0003` 记录 AGP 9 构建基线决策
+- [ ] `docs/60-runbooks/build.md` 补齐「他人 clone 后如何构建」——**已补**（含 SDK 安装、约定插件说明、Room 验证配方）
+- [ ] 真机启动验证（待用户确认是否安装到已连接的华为 HBP-AL00）
+
+## 第二档执行记录（2026-10-02）
+
+按「先在小面积上验证、再放大」的同一原则，本轮把风险逐个隔离后验证，而不是一次性建 11 个模块：
+
+| 步骤 | 做法 | 结果 |
+|---|---|---|
+| 1 | 版本核实 | 全部版本改为读官方仓库 `maven-metadata.xml`，不靠记忆。发现 **KSP 已改独立版本线**、detekt 2.x 仍只有 alpha |
+| 2 | 只建 `:core:ui` 并构建 | 先撞上 `compileSdk` 不足（Compose 2026.09 要求 ≥ 37）→ 补装 `android-37.0`；随后 `compileDebugKotlin` 通过，**Compose 在 AGP 9 内置 Kotlin 下可用** |
+| 3 | 只建 `:core:data` 并构建 | KSP 任务正常执行、处理器正常加载，但 Room 报 `@Database annotation must specify list of entities` → **不在仓库里编造表结构**，改为在仓库外一次性工程验证 Room 代码生成 |
+| 4 | 构建 `:app` | Hilt 的 `hiltAggregateDepsDebug` / `transformDebugClassesWithAsm` 正常执行，**产出 APK** |
+| 5 | 全量 `assembleDebug lintDebug` + 测试 | 11 模块 423 个任务通过；lint 0 error / 2 warning；领域层 14 测试 0 失败 |
+
+**过程中修正的两处旧记载**（都属于「文档说的不是事实」）：
+
+1. 「SDK 里 platform 最高只有 36」→ 实际是**当时没装**，`sdkmanager --list` 里有 `android-37.0/37.1/37.2`。
+2. 「Java 连不通 `services.gradle.org`，只能用本地 Gradle」→ 本轮 `.\gradlew.bat --version` 成功下载发行版，**Wrapper 已恢复可用**。
 
 ## 验收（分档）
 
@@ -73,29 +100,50 @@ Solution: Remove the 'org.jetbrains.kotlin.android' plugin from this project's b
 - [x] `:core:common` 是 `com.android.library` 模块，**能** `import android.os.Build` ——
       与 `:core:domain` 形成对照，证明 ADR-0001 决策 4 的分层真实成立
 
-**第二档（待 ADR-0002 决策后）**
-- [ ] `./gradlew assembleDebug` 产出 APK
-- [ ] `./gradlew testDebugUnitTest` 全绿
-- [ ] 真机/模拟器上能启动并显示占位首页
+**第二档（已完成）**
+
+- [x] `./gradlew assembleDebug` 产出 APK —— **验证: 自动化**，`app-debug.apk` 11.65 MB，
+      `aapt2 dump badging` 显示 `package=com.jizhangbao.app` `versionCode=1` `versionName=0.1.0`
+      `minSdk=26` `targetSdk=36` `compileSdk=37` `launchable-activity=com.jizhangbao.app.MainActivity`
+      `application-label=记账宝`
+- [x] `./gradlew testDebugUnitTest` 全绿 —— **验证: 自动化**，`:core:domain:test` 强制重跑
+      （`--rerun`，不吃 UP-TO-DATE）：**14 tests / 0 failures / 0 errors**。
+      Android 侧 `:app:testDebugUnitTest` 为 `NO-SOURCE`（尚无测试），**这不算通过，只是没有测试**
+- [x] `./gradlew assembleDebug lintDebug` —— **验证: 自动化**，BUILD SUCCESSFUL；
+      lint **0 error / 2 warning**（`MissingApplicationIcon`、`DataExtractionRules`）
+- [x] 11 个模块全部独立构建通过（`:core:domain` + 4 个 `:core:*` + 5 个 `:feature:*` + `:app`）
+- [ ] 真机/模拟器上能启动并显示占位首页 —— **未执行**。已连接的华为 HBP-AL00（Android 12 / API 32）
+      与 minSdk 26 兼容，但安装到用户个人手机属于对用户设备的副作用，**等用户确认后再做**
 
 ## 风险
 
 | 风险 | 状态 | 对策 |
 |---|---|---|
-| AGP 9.x 与 Hilt/Konsist/detekt 不兼容 | ⏳ 未验证（尚未引入） | 逐个验证；不兼容的降级并新增 ADR |
-| 非 ASCII 路径在 aapt2 / 资源处理阶段出问题 | ⚠️ **未验证，最大未知风险** | ADR-0002；一旦出现即迁移仓库 |
-| 仓库路径导致本地配置不可复现 | ✅ 已发生（local.properties 编码） | 用 `ANDROID_HOME` 环境变量绕过 |
+| AGP 9.x 与 Hilt/Konsist/detekt 不兼容 | ✅ Hilt 2.60.1 已实测通过 | Konsist / detekt 仍未验证，归 T-003；不兼容时按 ADR-0001 降级并**新增 ADR** |
+| 非 ASCII 路径在 aapt2 / 资源处理阶段出问题 | ✅ 已排除 | 仓库在纯 ASCII 路径，全模块资源处理通过 |
+| 仓库路径导致本地配置不可复现 | ✅ 已解决 | `local.properties` 正常；文档给出 `ANDROID_HOME` 方式 |
+| **Kotlin 版本静默退回 2.2.10** | ⚠️ **新发现的结构性隐患** | 全靠根 `build.gradle.kts` 里的 Kotlin 插件别名撑着；删掉即静默退化。核实命令与说明已写入 `build.md`，见 ADR-0003 决策 2 |
+| `targetSdk (36) < compileSdk (37)` 的欠债 | ⚠️ 已知、刻意 | 本机无可复现测试环境，不单方面改运行时行为；复审条件见 ADR-0003 |
+| `:core:data` / `:core:testing` 是空模块 | ⚠️ 已知、刻意 | 内容必须由真实聚合倒推；Room 可用性已在仓外验证 |
 
 ## 完成情况
 
-- 提交: 见提交历史
-- 未决: **ADR-0002 待用户决策**（是否迁移仓库路径）
+- 提交: 见 `90-trace/traceability.md` 的 T-002 行
+- 未决:
+  1. **真机启动验证**（等用户确认是否安装到 HBP-AL00）
+  2. `detekt` / `Konsist` 的 AGP 9 兼容性（归 T-003）
+  3. Q-020 视觉设计（`:core:ui` 现用 Material 3 默认色板，带 `TODO(Q-020)` 单点降级）
 - 环境备注: Gradle 9.8.0 与 Android SDK 均在 `.tools/`（已 gitignore）；
-  `local.properties` 因中文编码问题**已删除**，改用 `ANDROID_HOME`
+  需要 `platforms;android-37.0`（不再是 36）；Wrapper 已恢复可用
 
 ## 豁免项
 
 | 豁免内容 | 原因 | 批准人 | 跟踪任务 |
 |---|---|---|---|
-| `feature:*` 业务模块 | 需等 Q-015/Q-016 澄清后才能定聚合 | — | 待 Q 闭环 |
-| `build-logic` 约定插件 | 2 个模块时收益仍低于复杂度 | Agent 决策 | 模块数 ≥ 5 时 |
+| `feature:*` 的业务逻辑（聚合 / 用例 / 界面） | 聚合需等 Q-015 / Q-016 等澄清后才能定；**骨架已建，内容不猜** | — | 各上下文的任务卡 |
+| `:core:data` 的 `@Database` 与实体 | Room 拒绝空 `entities`；实体必须由真实聚合倒推（R6） | Agent 决策 | 第一个数据层任务卡 |
+| `:core:testing` 的内容 | Fake / 测试数据构造器必须由真实领域类型倒推 | Agent 决策 | 第一个领域测试任务卡 |
+| `:core:ui` 的品牌色板 | 视觉设计未定（Q-020）；用 Material 3 默认值 + 单点 `TODO(Q-020)` 降级 | — | Q-020 定案后 |
+| Retrofit / OkHttp / Coil / DataStore / navigation | 版本已核实但**无消费者**，引入只会增加攻击面与体积 | Agent 决策 | 各自第一个真实需求 |
+| 真机启动验证 | 安装到用户个人手机属对用户设备的副作用 | — | 用户确认后 |
+| detekt / Konsist | 属 T-003 范围（架构规则机器强制） | — | T-003 |
