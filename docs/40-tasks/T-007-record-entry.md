@@ -23,9 +23,10 @@
 
 > 先列出来，实现时逐项勾选。与预期不符时说明原因。
 
-- [ ] `feature:ledger` 的 domain：`LedgerEntry`（聚合根）、`LedgerEntryId`、`CategoryId`、
+- [x] `feature:ledger` 的 domain：`LedgerEntry`（聚合根）、`LedgerEntryId`、`CategoryId`、
       `Category`、`Note`、`LedgerEntryRepository` 接口、预置分类清单
-- [ ] domain 测试：不变式正反用例（先红后绿）
+- [x] domain 测试：24 个（`LedgerEntryTest` 12 / `CategoryCatalogTest` 8 / `NoteTest` 4）
+      —— ⚠️ **不声称「先红后绿」**：实现先写好，因此改用**反向验证**证明测试有效（见下）
 - [ ] application：`RecordLedgerEntryUseCase`、`ObserveRecentEntriesUseCase` + Fake 仓储测试
 - [ ] `:core:data`：`LedgerEntryEntity`（Room）、`LedgerEntryDao`、Mapper、
       `LedgerEntryRepositoryImpl`、数据库装配（**第一个 `@Database`**）、迁移策略说明
@@ -80,10 +81,30 @@
 
 ## 完成情况
 
-- 提交:
+- 提交: 见 `90-trace/traceability.md` 的 T-007 行
+- 状态: **进行中**——领域层已完成；application / data / presentation / DI / 冒烟未做
+- 已完成部分的证据（2026-10-02）：
+  - `:feature:ledger:testDebugUnitTest`：**24 个测试 0 失败**（新写的领域测试）
+  - 全仓门禁：`detekt` / `lintDebug` / `testDebugUnitTest` / `assembleDebug` /
+    `verifyDomainPurity` / `checkModuleDependencies` 全部通过（合计 30 个测试 0 失败）
+  - `verifyDomainPurity` 的扫描数从 **5 → 13 个文件**：新写的 8 个 domain 源文件
+    **确实进入了 R3 扫描范围**——这条原本只是设计意图，现在被数字证实
+  - **反向验证**：故意破坏两处（注释掉 `record` 里的金额守卫；把 `Note` 的码点计数
+    改成 UTF-16 码元计数），**恰好对应的 2 个测试失败**，其余 22 个照常通过 → 还原后全绿
+- 过程中发现并处理的两个真问题：
+  1. **共享内核缺陷**：`DomainError` 是 `sealed`，而 Kotlin 禁止跨模块实现 sealed 类型
+     （编译器原话：`Extending sealed classes or interfaces from a different module is prohibited`），
+     与它自己「公共父类型」的 KDoc 矛盾 → 改为 `interface`，记 `ADR-0006`（含反向验证：
+     还原成 `sealed` 会再次编译失败）
+  2. **detekt 抓到真实问题**：`record` 有 3 个 return（上限 2）→ 改为「`?:` 守卫 +
+     `if/else`」两个 return；**没有压规则**。中途试图改成校验表时踩到
+     「`when` 的分支条件不做智能转换」的编译错误，已修正并把结论写进代码注释
 - 未决: `Q-021`（未来时间的账，本卡不校验）、`Q-020`（视觉暂用 M3 默认）
 - 备注: 本卡会引入**第一个 Room `@Entity` 与第一版 schema**——
   提交前必须检查 `git status`，不要把失败的构建留下的 schema 产物一起提交（`T-002` 踩过）
+- ⚠️ 给下一轮的提醒：**测试结果 XML 可能是陈旧的**。本轮编译失败时，
+  `test-results/` 里仍躺着上一次运行的旧结果，看起来像「测试跑了且有失败」。
+  读测试结果前先确认任务真的执行过（或先删掉旧结果目录）
 
 ## 豁免项
 
