@@ -6,7 +6,8 @@
 - 依赖: T-002、T-004
 - 分支: `docs/T-005-open-source`（已合并到 develop）
 - 预估: 0.5 天 | 实际: 约 1 轮
-- 用户决策（2026-10-02）: 许可证 = **MIT**；署名 = `pythonyunpeng-maker`
+- 用户决策（2026-10-02）: 许可证 = **MIT**；署名 = **`pyyyyp`**（最初按当时的远端账号
+  写成 `pythonyunpeng-maker`，换成该账号名下的远端后已更正）
 - 远端: `https://github.com/pyyyyp/Bookkeeping.git`（用户创建；**公开**仓库）
   —— 首次推送因凭据账号不匹配失败，换成该账号名下的仓库后成功，过程见文末
 
@@ -57,7 +58,7 @@
 | 事项 | 结论 | 决定时间 |
 |---|---|---|
 | 许可证类型 | **MIT** | 2026-10-02 |
-| 版权署名 | `pythonyunpeng-maker`（用户指定用 GitHub 用户名） | 2026-10-02 |
+| 版权署名 | **`pyyyyp`**（用户指定用 GitHub 用户名）。⚠️ 最初写成 `pythonyunpeng-maker`——那是**换远端之前**那个仓库的账号；换成 `pyyyyp` 名下的远端后已更正 `LICENSE` | 2026-10-02 |
 | 是否现在就公开 | 公开。⚠️ 已提醒：内容一推上去即公开、git 历史难以收回 | 2026-10-02 |
 
 ## 推送过程（2026-10-02）——先失败一次，换远端后成功
@@ -92,6 +93,11 @@ fatal: unable to access '...': The requested URL returned error: 403
   1. `main` 落后于 `develop`（初始骨架），等发布时再合并——这是刻意的，不是遗漏
   2. `PRIVACY.md` 的「导出与删除」具体做法待 Q-006（当前也确实没有任何数据可导出）
 - 已关闭: 推送阻塞、clone 构建验证、CI 真实运行验证
+- **署名更正（用户 2026-10-02 要求）**：`LICENSE` 的版权权利人由
+  `pythonyunpeng-maker` 改为 **`pyyyyp`**。原因：最初给出署名时远端还是
+  `pythonyunpeng-maker/Bookkeeping`，后来换成了 `pyyyyp` 名下的仓库，署名没跟着改。
+  ⚠️ 上文「推送过程」一节里**保留**了旧账号名与 GitHub 的原话报错——
+  那是历史事实的引用，改掉就变成篡改记录，不能为了整齐而改
 
 ## 豁免项
 
