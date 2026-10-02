@@ -39,9 +39,14 @@ internal object DatabaseModule {
     /**
      * 系统时钟。注入而不是各处直接 `Instant.now()`：
      * 否则「补记」与「录入时间」的用例没办法稳定测试。
+     *
+     * ⚠️ 用 `systemDefaultZone()` 而不是 `systemUTC()`：**时钟带时区**，
+     * 而 `REQ-002/BR-1` 要求「本月」按用户日历上的月（本机时区）划分自然月。
+     * 用 UTC 会让东八区用户在月初/月末看到错误的合计（例如 10-01 08:00 记的账
+     * 会被算进 9 月）。`instant()` 与时区无关，所以这个改动**不影响任何既有行为**。
      */
     @Provides
-    fun provideClock(): Clock = Clock.systemUTC()
+    fun provideClock(): Clock = Clock.systemDefaultZone()
 
     private const val DATABASE_NAME = "jizhangbao.db"
 }

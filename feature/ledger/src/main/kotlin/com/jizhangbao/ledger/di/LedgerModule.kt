@@ -1,6 +1,8 @@
 package com.jizhangbao.ledger.di
 
+import com.jizhangbao.core.domain.LedgerTotalsReader
 import com.jizhangbao.ledger.data.repository.LedgerEntryRepositoryImpl
+import com.jizhangbao.ledger.data.totals.LedgerTotalsReaderImpl
 import com.jizhangbao.ledger.domain.repository.LedgerEntryRepository
 import dagger.Binds
 import dagger.Module
@@ -28,4 +30,16 @@ internal abstract class LedgerModule {
     internal abstract fun bindLedgerEntryRepository(
         impl: LedgerEntryRepositoryImpl,
     ): LedgerEntryRepository
+
+    /**
+     * 跨上下文读端口（`ADR-0008`）：契约在内核，实现在这里，消费方是 `:feature:insight`。
+     *
+     * 绑在 SingletonComponent 里，所以两个模块的 Hilt 装配能对上——
+     * 但**没有任何编译期依赖**在 feature 之间产生。
+     */
+    @Binds
+    @Singleton
+    internal abstract fun bindLedgerTotalsReader(
+        impl: LedgerTotalsReaderImpl,
+    ): LedgerTotalsReader
 }

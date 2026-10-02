@@ -37,4 +37,27 @@ internal class FakeLedgerEntryDao : LedgerEntryDao {
         failure?.let { throw it }
         return recentRows.take(limit)
     }
+
+    /**
+     * 按方向与半开区间求和。
+     *
+     * 这里刻意**真的按存储的行算**，而不是返回一个预设值：这样端口实现的测试
+     * （收入、支出分别求和再组装）才有意义。
+     * 但 SQL 本身（`COALESCE(SUM(...), 0)`、`>= from AND < to`）**这条路径测不到** ——
+     * 那由 `androidTest` 里的 `LedgerEntryDaoTest` 在真 SQLite 上验证。
+     */
+    override suspend fun sumAmountCents(
+        direction: String,
+        fromEpochMilli: Long,
+        toEpochMilli: Long,
+    ): Long {
+        failure?.let { throw it }
+        return inserted
+            .filter {
+                it.direction == direction &&
+                    it.occurredAtEpochMilli >= fromEpochMilli &&
+                    it.occurredAtEpochMilli < toEpochMilli
+            }
+            .sumOf { it.amountCents }
+    }
 }
