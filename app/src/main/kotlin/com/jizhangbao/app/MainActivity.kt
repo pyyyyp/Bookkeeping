@@ -4,26 +4,20 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 import com.jizhangbao.core.ui.theme.JizhangbaoTheme
+import com.jizhangbao.ledger.presentation.LedgerRoute
+import dagger.hilt.android.AndroidEntryPoint
 
 /**
- * 唯一的 Activity，承载 Compose 宿主（单向数据流的起点）。
+ * 唯一的 Activity，承载 Compose 宿主。
  *
- * ⚠️ 当前显示的[PlaceholderHome]是**脚手架占位页，不是产品界面**。
- * 各上下文的首屏将由对应 `:feature:*` 模块提供（R8：app 只做组装，不含业务规则）。
+ * ⚠️ **本类不得包含业务规则**（R8）：它只做三件事——装主题、起 Compose、
+ * 把首屏指向某个上下文提供的界面。界面本身属于 `:feature:*`。
+ *
+ * 首屏目前直接是 Ledger 的记账界面（`REQ-001`）。等有了第二个上下文与导航，
+ * 这里会换成一个导航宿主——那时才需要引入 navigation 依赖（版本已核实记录在目录里）。
  */
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,36 +25,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             JizhangbaoTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    PlaceholderHome(modifier = Modifier.padding(innerPadding))
-                }
+                // 不加外层 Scaffold：记账界面自带 Scaffold 与 TopAppBar，
+                // 外面再套一层会多出一份无人使用的内边距（lint 的
+                // UnusedMaterial3ScaffoldPaddingParameter 就是这么报出来的）
+                LedgerRoute()
             }
         }
-    }
-}
-
-@Composable
-private fun PlaceholderHome(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = stringResource(R.string.app_name),
-            style = MaterialTheme.typography.headlineMedium,
-        )
-        Text(
-            text = stringResource(R.string.placeholder_home_message),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PlaceholderHomePreview() {
-    JizhangbaoTheme {
-        PlaceholderHome()
     }
 }

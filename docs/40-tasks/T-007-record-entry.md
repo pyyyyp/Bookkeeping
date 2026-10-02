@@ -35,9 +35,12 @@
       详见该 ADR
 - [x] DI 装配（Hilt）：`feature:ledger/di/LedgerModule`（仓储绑定）+
       `:app` 的 `DatabaseModule`（数据库 / DAO / 时钟）——ViewModel 的绑定随 presentation 一起
-- [ ] presentation：`RecordEntryViewModel` + `RecordEntryUiState` + Compose 记账界面
-- [ ] 列表界面：Compose 列表（按 `occurredAt` 倒序）
+- [x] presentation：`LedgerViewModel` + `LedgerUiState` + Compose 记账界面
+      （表单 / 列表 / 日期选择拆成三个文件——detekt 的 LongMethod 与 TooManyFunctions
+      把「一个文件既管骨架又管细节」这件事直接拦下了）
+- [x] 列表界面：Compose 列表（顺序由 SQL 的 `ORDER BY` 保证，界面**不重新排序**）
 - [ ] 端到端冒烟：在模拟器上真的记一笔，重启后仍在（截图/日志为证）
+      —— ⚠️ **未做**：本轮最后卡在环境问题上（见下），界面只做到「编译通过 + 门禁全绿」
 
 ## 验收
 

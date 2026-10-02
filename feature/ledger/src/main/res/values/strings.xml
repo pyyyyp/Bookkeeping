@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  用户可见字符串全部在这里（AGENTS.md 第 7 节第 12 条：禁止在代码里硬编码）。
+  ViewModel 与 UI 之间传递的是**错误枚举**，文案只在这一层映射——见 AmountInputError / SaveFailure。
+-->
+<resources>
+    <string name="ledger_title">记一笔</string>
+    <string name="ledger_amount_label">金额（元）</string>
+    <string name="ledger_direction_label">收支方向</string>
+    <string name="ledger_direction_expense">支出</string>
+    <string name="ledger_direction_income">收入</string>
+    <string name="ledger_category_label">分类</string>
+    <string name="ledger_date_label">发生日期</string>
+    <string name="ledger_note_label">备注（可选）</string>
+    <string name="ledger_save">保存</string>
+    <string name="ledger_saving">保存中…</string>
+    <string name="ledger_list_title">最近的账目</string>
+    <string name="ledger_list_empty">还没有记账。在上面记一笔试试。</string>
+    <string name="ledger_confirm">确定</string>
+    <string name="ledger_cancel">取消</string>
+
+    <string name="ledger_error_amount_empty">请输入金额</string>
+    <string name="ledger_error_amount_not_a_number">金额只能是数字</string>
+    <string name="ledger_error_amount_too_many_decimals">金额最多两位小数</string>
+    <string name="ledger_error_amount_not_positive">金额必须大于 0</string>
+    <string name="ledger_error_category_required">请选择分类</string>
+    <string name="ledger_error_note_too_long">备注最多 200 个字</string>
+    <string name="ledger_error_storage">保存失败：本机数据库出错，这笔没有记上</string>
+    <string name="ledger_error_rejected">这条记录没有被接受，请检查填写内容</string>
+</resources>
