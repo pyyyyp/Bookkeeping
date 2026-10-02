@@ -68,7 +68,7 @@
 | `:app` | Android Application | `com.jizhangbao.app` | core:domain, core:common, core:ui, core:data + 全部 5 个 feature | — | ✅ |
 | `:core:domain` | **Kotlin JVM** | — | 无 | 共享内核 | ✅ |
 | `:core:ui` | Android Library | `com.jizhangbao.core.ui` | core:domain | 设计系统 | ✅ |
-| `:core:data` | Android Library | `com.jizhangbao.core.data` | core:domain | 网络/数据库基础设施 | ✅（**暂无源文件**，见下） |
+| `:core:data` | Android Library | `com.jizhangbao.core.data` | core:domain | 跨上下文**共享**的数据基础设施 | ✅（**暂无源文件**，见下） |
 | `:core:common` | Android Library | `com.jizhangbao.core.common` | 无 | 日志/时间/调度器 | ✅ |
 | `:core:testing` | Android Library | `com.jizhangbao.core.testing` | core:domain | Fake / 测试数据构造器 | ✅（**暂无源文件**，见下） |
 | `:feature:ledger` | Android Library | `com.jizhangbao.ledger` | core:domain, core:ui | **Ledger 账本（核心域）** | ✅ 骨架 |
@@ -86,7 +86,33 @@
 - `:core:data` —— Room 拒绝空的 `entities` 列表，而第一个实体必须由真实聚合倒推（R6）。
   为了让编译器闭嘴而编一张「占位表」，等于把猜出来的结构写进唯一事实源的 schema。
   Room 的可用性改在仓库外的验证工程里证明，配方见 `60-runbooks/build.md`。
+  ⚠️ **更正（ADR-0007）**：本文此前写着「第一个 `@Entity` 随第一个数据层任务卡一起进本模块」，
+  那句话**与 R7 冲突**（本模块不得依赖任何 `feature:*`，而实体必须引用上下文的领域类型）。
+  实际归属见下节。
 - `:core:testing` —— 它要装的是 Fake 与测试数据构造器，那必须由真实领域类型倒推。
+
+## 数据层的归属（ADR-0007，2026-10-02 落地）
+
+```
+feature:ledger/
+├── domain/         ← 聚合、值对象、仓储接口
+├── data/           ← LedgerEntryEntity（Room）、Dao、Mapper、RepositoryImpl
+├── di/             ← 该上下文的 Hilt 绑定
+└── presentation/   ← ViewModel 与 Compose
+app/…/data/         ← 唯一的 @Database（组合根才看得见全部上下文的实体）
+core:data/          ← 跨上下文共享的数据基础设施（TypeConverter 等），**不持有任何实体**
+```
+
+| 决定 | 为什么 |
+|---|---|
+| 实体 / Mapper / 仓储实现在**上下文模块** | R7 禁止 `core:*` 依赖 `feature:*`，而它们必须引用上下文的领域类型 |
+| 唯一的 `@Database` 在 **`:app` 的 `data` 包** | 只有组合根能同时看见全部 feature 的实体（R8）；数据库定义不是业务规则 |
+| `:core:data` 只放共享基础设施 | 一旦持有实体就必须依赖某个 feature → 直接违反 R7 |
+
+> ⚠️ 数据库类的位置**不能随便挪**：挪出 `data` / `di` 包会触发 Konsist 的 R10
+> （非 data/di 的文件不得引用 data 层），挪出 `:app` 会看不见其他上下文的实体。
+>
+> 这一决定让 **R5 / R6 / R10 第一次有了真实靶子**——此前它们是「装好了瞄准镜、还没有目标」。
 
 > **v0.2**：原计划的 `:feature:allocation` 已删除（Q-003 澄清「按比例」指工资分摊，不是收入分配）。
 

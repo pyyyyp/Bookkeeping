@@ -13,7 +13,7 @@
 | 申请了哪些权限？ | **一个都没有** |
 | 会联网吗？ | **不会**。没有 `INTERNET` 权限，依赖清单里也没有网络库 |
 | 收集或上传数据吗？ | **不收集、不上传**。本项目没有后端 |
-| 本地存了哪些数据？ | **目前什么都没存**。`:core:data` 还没有数据库与实体 |
+| 本地存了哪些数据？ | **账目条目**：金额、收支方向、分类、发生时间、录入时间、备注。存在应用私有目录下的 Room 数据库（`jizhangbao.db`）里，**未加密**（是否需要加密取决于 `Q-006`） |
 | 有分析 / 崩溃上报 / 广告 SDK 吗？ | **没有** |
 
 ---
@@ -30,8 +30,9 @@ git grep -n "uses-permission" -- app
 git grep -n "INTERNET" -- app
 git grep -in "retrofit\|okhttp\|HttpURLConnection" -- app core feature
 
-# 3) 存储：应当报「不存在」——还没有任何数据层实现
-ls core/data/src
+# 3) 存储：目前只应当有一张账目条目表，没有任何网络或第三方表
+git grep -rn "tableName" -- feature app
+#    → 应当只看到 @Entity(tableName = "ledger_entry")
 
 # 4) 分析 / 上报 / 广告：应当没有任何输出
 git grep -in "firebase\|crashlytics\|analytics\|admob\|sentry" -- gradle build-logic app core feature

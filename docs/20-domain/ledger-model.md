@@ -41,7 +41,7 @@
 | `categoryId` | `CategoryId` | ❌ | **只用 ID 引用分类**，不持有 `Category` 对象 |
 | `occurredAt` | `Instant` | ❌ | 这笔钱**实际**发生的时间 |
 | `bookedAt` | `Instant` | ❌ | 这笔条目**被录入**的时间（补记时二者不同） |
-| `note` | `String?` | ❌ | 备注，可空 |
+| `note` | `Note?` | ❌ | 备注，可空（不填是常态；空备注只有 `null` 一种表达） |
 
 > **不可变**是刻意的：本卡不含「编辑条目」。等做编辑时再讨论是
 > 「生成新条目 + 作废旧条目」还是「受控变更」——那是一个需要 ADR 的决策，现在不预设。
@@ -52,12 +52,18 @@
 
 | 编号 | 不变式 | 违反时返回 | 对应测试 |
 |---|---|---|---|
-| INV-1 | `amount` 必须 **> 0**（`Money` 保证非负，这里再排除 0） | `DomainError.AmountNotPositive` | `LedgerEntryTest` |
-| INV-2 | `categoryId` 必须非空 | `DomainError.CategoryRequired` | `LedgerEntryTest` |
+| INV-1 | `amount` 必须 **> 0**（`Money` 保证非负，这里再排除 0） | `LedgerError.AmountNotPositive` | `LedgerEntryTest` |
+| INV-2 | `categoryId` 必须非空 | `LedgerError.CategoryRequired` | `LedgerEntryTest` |
 | INV-3 | `direction` 只能是 `Expense` / `Income` | 类型系统保证（enum），无需运行时校验 | 编译期 |
 | INV-4 | 条目一旦被删除即不存在（物理删除，无「墓碑」状态） | 见 `ADR-0005` | `DeleteLedgerEntryUseCaseTest` |
-| INV-5 | `note` 若存在，长度 ≤ 200 字符（按 Unicode 码点计） | `DomainError.NoteTooLong` | `LedgerEntryTest` |
+| INV-5 | `note` 若存在，长度 ≤ 200 **Unicode 码点** | `LedgerError.NoteTooLong` | `NoteTest` |
 | INV-6 | `occurredAt` 不得晚于 `bookedAt` | 见下方「待决问题」`Q-021`，**本卡不校验** | — |
+
+> **错误类型是 `LedgerError`，不是内核的 `DomainError.InvalidInput`**：
+> 内核那几个泛型分支无法区分「金额不合法」与「没选分类」，
+> 而 `AC-3` / `AC-4` 要求给出**各不相同**的提示。
+> 让上下文能定义自己的错误，需要先把内核的 `DomainError` 从 `sealed` 改成 `interface`
+> —— 那次内核修正记在 `ADR-0006`，起因是编译器直接拒绝跨模块实现 sealed 类型。
 
 ### 行为
 
@@ -126,12 +132,21 @@
 ```kotlin
 // 接口在 domain，实现在 data（R4：依赖倒置）
 interface LedgerEntryRepository {
-    suspend fun add(entry: LedgerEntry)
-    suspend fun remove(id: LedgerEntryId)
-    suspend fun recent(limit: Int): List<LedgerEntry>   // 按 occurredAt 倒序
-    suspend fun observeRecent(limit: Int): Flow<List<LedgerEntry>>
+    suspend fun add(entry: LedgerEntry): Outcome<Unit>
+    suspend fun remove(id: LedgerEntryId): Outcome<Unit>
+    suspend fun recent(limit: Int): Outcome<List<LedgerEntry>>   // 按 occurredAt 倒序
 }
 ```
+
+> **为什么返回值是 `Outcome` 而不是直接返回数据 / 抛异常**：
+> 「不抛异常跨层」是硬规则，而存储失败（磁盘满、数据库损坏）是**可预期**的失败。
+> 因此 `data` 层负责把技术异常翻译成 `DomainError.Technical`，
+> 上层拿到 `Outcome`，不必写 try/catch。
+> 仓储实现在 `feature:ledger` 的 `data/repository`（见 `ADR-0007`）。
+>
+> **为什么没有 `observeRecent(...): Flow<...>`**（原设计里有）：
+> 反应式观察要求领域层依赖 kotlinx-coroutines，而引入新依赖需要单独裁决。
+> 本卡的界面只要「改动后重新查询」就能刷新，所以 `suspend` 就够了。
 
 > 接口说**领域语言**（`recent` / `add` / `remove`），不说 SQL 语言
 > （不出现 `insert` / `delete` / `query` / `LIMIT`）。
@@ -143,9 +158,12 @@ interface LedgerEntryRepository {
 
 | 用例 | 输入 | 输出 | 不变式/边界 |
 |---|---|---|---|
-| `RecordLedgerEntryUseCase` | `direction, amount, categoryId, occurredAt, note` | `Outcome<LedgerEntryId>` | 走 `LedgerEntry.record()`，不变式全部生效 |
-| `ObserveRecentEntriesUseCase` | `limit` | `Flow<List<LedgerEntry>>` | 只读；排序在仓储层保证 |
-| `DeleteLedgerEntryUseCase` | `LedgerEntryId` | `Outcome<Unit>` | 物理删除（`ADR-0005`） |
+| `RecordLedgerEntryUseCase` | `direction, amount, categoryId, occurredAt, note` | `Outcome<LedgerEntryId>` | 走 `LedgerEntry.record()`，不变式全部生效；`bookedAt` 取注入的 `Clock` |
+| `LoadRecentEntriesUseCase` | `limit`（默认 200） | `Outcome<List<LedgerEntry>>` | 只读；排序由仓储（SQL）保证 |
+| `DeleteLedgerEntryUseCase` | `LedgerEntryId` | `Outcome<Unit>` | 物理删除（`ADR-0005`）；条目不存在时返回 `LedgerError.EntryNotFound` |
+
+> **用例名说明**：叫 `Load...` 而不是 `Observe...`——本卡不做反应式观察，
+> **名字必须说明它真的做了什么**，否则调用方会以为界面会自动刷新。
 
 **用例只编排，不含业务规则**：金额是否合法、备注是否过长，都在 `LedgerEntry` 里判定。
 用例负责「取分类 → 组装 → 调仓储 → 映射错误」，不负责「判断金额能不能为 0」。

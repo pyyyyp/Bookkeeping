@@ -34,5 +34,8 @@ dependencies {
 // `<Database>_Impl.kt`、并导出了 `schemas/<Database>/1.json`。
 // 复现步骤见 docs/60-runbooks/build.md「Room 可用性验证」。
 //
-// 第一个 @Entity 必须由真实聚合倒推（R6），随第一个数据层任务卡一起进本模块。
+// 第一个 @Entity 必须由真实聚合倒推（R6）—— 但它**不住在本模块**：
+// 实体/Mapper/仓储实现必须引用上下文的领域类型，而本模块不得依赖任何 feature（R7）。
+// 归属见 ADR-0007：实现在 feature 模块的 data 包，唯一的 @Database 在 :app 的 data 包；
+// 本模块只承担**跨上下文共享**的数据基础设施（例如 TypeConverter）。
 // ─────────────────────────────────────────────────────────────

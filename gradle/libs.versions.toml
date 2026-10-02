@@ -87,6 +87,10 @@ androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref =
 # ── Hilt ──
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
+# @HiltViewModel 在 Compose 里的取用方式（hiltViewModel()）。
+# 版本 androidxHilt 早已核实；T-007 的 presentation 是它的第一个真实消费者，
+# 因此按本文件第 46 行的约定在此补上 library 条目。
+androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "androidxHilt" }
 
 # ── 架构断言：只在 test 源集里用（T-003）──
 konsist = { module = "com.lemonappdev:konsist", version.ref = "konsist" }
