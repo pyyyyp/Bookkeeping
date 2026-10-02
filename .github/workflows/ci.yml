@@ -2,12 +2,13 @@
 #
 # 目标：把「提交前门禁」与「追溯矩阵完整性」从人的自觉变成机器的强制（原则 P4）。
 #
-# ⚠️ 诚实声明：本文件**尚未在真实 runner 上跑过**——仓库目前没有 GitHub 远端。
-# 已验证的部分：YAML 语法（PyYAML 解析通过）、每条命令在本机等价可用、
-#              追溯脚本的 5 个失败场景（见 T-004 卡的反向验证记录）。
-# 未验证的部分：ubuntu runner 上 android-actions/setup-android 能否提供
-#              platforms;android-37.0（37.0 是很新的 API），以及各步的实际耗时。
-# 首次推送后请核对日志，并把结论回填 T-004 卡。
+# ⚠️ 诚实声明：本文件**已在真实 runner 上运行过**（2026-10-02，
+# https://github.com/pyyyyp/Bookkeeping）。首次与第二次运行都失败在「装 Android SDK」这一步，
+# 当时用的是 android-actions/setup-android@v3；GitHub 的失败日志需鉴权下载，
+# 我们读不到，因此**根因未证实**。现已改为使用 runner 预装 SDK + 显式安装组件，
+# 并让该步骤打印诊断信息（ANDROID_HOME / sdkmanager 路径 / 版本），下次失败时日志即答案。
+#
+# 仍未验证：android-37.0 在这条路径上是否可用、各步实际耗时。
 #
 # 与 AGENTS.md 阶段 E 的对应关系（逐项一致，顺序也一致）：
 #   ./gradlew detekt                          → 「静态分析」
@@ -59,15 +60,25 @@ jobs:
       - name: 配置 Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: 装 Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: 安装本工程需要的 SDK 组件
+      - name: 安装本工程需要的 Android SDK 组件
+        # ⚠️ 刻意**不用** android-actions/setup-android：首次推送时它在 @v3 上就失败了
+        # （步骤「装 Android SDK」FAILED，其后的步骤全部 skipped），而 GitHub 的失败日志
+        # 需要鉴权下载，我们读不到——**根因未证实**。与其依赖一个无法诊断的第三方 action，
+        # 不如用 runner 镜像里预装的 SDK 自己装组件，并让这一步打印诊断信息：
+        # 下次若还失败，日志本身就是答案。
+        #
         # compileSdk 37 由 Compose BOM 2026.09 的下限决定（见 ADR-0003 决策 3），
-        # 所以必须显式装 android-37.0——不能指望 runner 镜像里恰好有。
+        # 所以 android-37.0 必须显式安装，不能指望镜像里恰好有。
         run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=${ANDROID_HOME:-<未设置>}"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-<未设置>}"
+          echo "sdkmanager 路径 = $(command -v sdkmanager || echo '<未找到>')"
+          sdkmanager --version
+          yes | sdkmanager --licenses > /dev/null
           sdkmanager --install "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
-          yes | sdkmanager --licenses
+          echo "--- 已安装的平台 ---"
+          ls "${ANDROID_HOME:-${ANDROID_SDK_ROOT}}/platforms"
 
       - name: 确保 gradlew 可执行
         # 本工程在 Windows 上开发，Git 里的执行位随时可能被重新加回文件时丢掉
