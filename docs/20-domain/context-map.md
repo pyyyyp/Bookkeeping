@@ -1,12 +1,12 @@
 # 限界上下文与上下文映射
 
-- 状态: **草稿 v0.1 · 待评审**
+- 状态: **草稿 v0.2 · 待评审**（据 Q-003 答复删除 Allocation 上下文）
 - 最后更新: 2026
-- 起草人: AndroidDDD-Agent（基于首次启动问卷答复，未做完整事件风暴）
+- 起草人: AndroidDDD-Agent（基于问卷答复，尚未做完整事件风暴）
 
 > ⚠️ **这是草稿，不是结论。** 我尚未与你做事件风暴，本划分基于问卷答复中的
-> 「记账 / 定位工时 / 算工资 / 按比例分配收入」四个动作推断。
-> **Allocation 上下文的存在性完全取决于 Q-003 的答复**——若「比例」指的是别的意思，该上下文可能不存在或需要重划。
+> 「记账 / 定位工时 / 算工资 / 每日收入」四个动作推断。**仍未闭环的是 Q-012**——
+> 若「分摊」揭示出一个独立的「资金用途/目标」概念，需要重新引入上下文。
 >
 > 本文是模块划分的**权威依据**。`settings.gradle.kts` 中的 `feature:<x>` 必须与本文一一对应。
 > 划分变更必须新增 ADR。
@@ -17,9 +17,15 @@
 |---|---|---|---|---|
 | **Ledger** 账本 | **核心域** | 记录一切钱的进出：自动/手工的收入与支出条目、分类、账户 | `LedgerEntry` | `feature:ledger` |
 | **Worklog** 工时 | **核心域** | 基于地理围栏记录工作时段 | `WorkSession`、`Workplace` | `feature:worklog` |
-| **Payroll** 薪资 | **核心域** | 把工时按费率结算成工资单 | `Payslip`、`PayRate` | `feature:payroll` |
-| **Allocation** 分配 | 🔴 待定 | 收入按比例分配 | 🔴 待定 | 🔴 待定 |
+| **Payroll** 薪资 | **核心域** | 把工时按费率结算成工资单，并把工资分摊为每日收入 | `Payslip`、`PayRate` | `feature:payroll` |
 | **Insight** 统计 | 支撑域 | 日/周/月汇总与报表（**读模型，无聚合**） | — | `feature:insight` |
+
+> **v0.2 变更（Q-003 澄清）**：原草稿中的 **Allocation 上下文已删除**。
+> 用户确认「按比例记录每天收入」指的是「把月工资分摊到每个工作日」，
+> 而不是「把收入分配到不同用途/目标」。前者不是一个独立业务能力，
+> 而是 Payroll 对工资的时间维度展开，因此归入 Payroll。
+> ⚠️ 分摊的**基数与比例**仍未定义（Q-012），若答案揭示出一个独立的
+> 「资金用途/目标」概念，Allocation 需要重新引入。
 
 ### 为什么这样分
 
@@ -53,8 +59,7 @@
 |---|---|---|---|---|
 | Worklog | Payroll | Customer-Supplier | 领域事件 `WorkSessionConfirmed` | 只有被确认（Confirmed）的时段才参与结算；`Running`/`Discarded` 不计入 |
 | Payroll | Ledger | Customer-Supplier | 领域事件 `PayslipIssued` | 工资单产生一笔 `LedgerEntry(Income)`；跨聚合走最终一致 |
-| Ledger | Allocation | 🔴 待定 | 🔴 待定 | 若 Q-003 确认分配作用于收入条目，则为 Customer-Supplier |
-| Allocation | Ledger | 🔴 待定 | 🔴 待定 | 分配结果是否也记为账目条目？取决于 Q-003 |
+| Payroll | （内部）| — | `DailyIncome` 由 `Payslip` 派生 | 非跨上下文，是 Payroll 内部的时间维度展开。规则待 Q-012 |
 | Ledger / Worklog / Payroll | Insight | Conformist | 直接读本地库（只读投影） | 读模型主动适应上游模型，上游不为其做适配 |
 | 系统通知 / 短信 / 银行账单（外部） | Ledger | **ACL（防腐层）** | Mapper 把外部文本/结构化数据翻译成 `LedgerEntry` 草稿 | 🔴 取决于 Q-001；**外部格式的解析细节绝不进入领域层** |
 | 定位服务（外部） | Worklog | **ACL** | 把坐标/围栏事件翻译成领域事件 | 系统定位 API 的变化被适配器吸收 |

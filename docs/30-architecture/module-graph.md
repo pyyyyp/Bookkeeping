@@ -62,7 +62,8 @@
 | `:feature:worklog` | Android Library | `com.jizhangbao.worklog` | core:domain, core:ui | **Worklog 工时（核心域）** | ⬜ |
 | `:feature:payroll` | Android Library | `com.jizhangbao.payroll` | core:domain, core:ui | **Payroll 薪资（核心域）** | ⬜ |
 | `:feature:insight` | Android Library | `com.jizhangbao.insight` | core:domain, core:ui | Insight 统计（支撑域，读模型） | ⬜ |
-| `:feature:allocation` | 🔴 待定 | — | — | Allocation 分配（**存在性取决于 Q-003**） | 🔴 待定 |
+
+> **v0.2**：原计划的 `:feature:allocation` 已删除（Q-003 澄清「按比例」指工资分摊，不是收入分配）。
 
 ## 校验命令
 

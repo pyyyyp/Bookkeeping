@@ -27,3 +27,6 @@ google-services.json
 
 # 日志与本机文件
 *.log
+
+# 本机工具链（Gradle 发行版等，不入库）
+.tools/
