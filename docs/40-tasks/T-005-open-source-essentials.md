@@ -1,12 +1,12 @@
 # T-005 开源配套（LICENSE / README / 隐私声明）
 
-- 状态: 进行中（LICENSE 待用户提供署名后落盘）
+- 状态: 进行中（**推送被凭据账号不匹配阻塞**，见文末「推送结果」）
 - 需求: —（Q-007 的衍生：自用 + 后续开源）
 - 上下文: core
 - 依赖: T-002、T-004
-- 分支: `docs/T-005-open-source`
+- 分支: `docs/T-005-open-source`（已合并到 develop）
 - 预估: 0.5 天 | 实际: 约 1 轮
-- 用户决策（2026-10-02）: 许可证 = **MIT**；远端已由用户创建，推送由 Agent 执行
+- 用户决策（2026-10-02）: 许可证 = **MIT**；署名 = `pythonyunpeng-maker`；远端由用户创建
 
 ## 目标
 
@@ -52,16 +52,39 @@
 | 许可证类型 | **MIT** | 2026-10-02 |
 | 是否现在就公开 | 远端已由用户创建；由 Agent 执行推送 | 2026-10-02 |
 
+## 推送结果（2026-10-02）——**未成功，原因不在仓库或代码**
+
+远端已配置为 `origin` = `https://github.com/pythonyunpeng-maker/Bookkeeping.git`，
+但 `git push -u origin develop` 被拒绝：
+
+```
+remote: Permission to pythonyunpeng-maker/Bookkeeping.git denied to pyyyyp.
+fatal: unable to access '...': The requested URL returned error: 403
+```
+
+**原因**：本机 Git 凭据管理器缓存的是**另一个 GitHub 账号（`pyyyyp`）**的凭据，
+它对 `pythonyunpeng-maker/Bookkeeping` 没有写权限。
+本地提交完好、远端仍为空——**没有任何东西丢失**。
+
+**Agent 刻意没做的事**：不修改或清除用户机器上的凭据、不尝试切换到其他账号、
+不做任何强制推送。这类操作涉及用户的账号与授权，必须由用户决定。
+
+**另需注意**：该仓库当前是**公开**的（不带凭据访问网页返回 HTTP 200）。
+若本意是先私有，请在推送内容之前改掉——**内容一推上去就是公开的**。
+
 ## 完成情况
 
 - 提交: 见 `90-trace/traceability.md` 的 T-005 行
 - 未决:
-  1. `LICENSE` 的版权署名（MIT 需要权利人名字）待用户提供后落盘
-  2. 「clone 后能构建」与「CI 在真实 runner 上跑通」需推送后才能验证
+  1. **推送被凭据账号不匹配阻塞**（见上）——需要用户选择解决方式；
+     本地已就绪：`origin` 已配置，`develop` 与 `main` 都可直接推送
+  2. `LICENSE` 的署名已由用户给出（`pythonyunpeng-maker`）并落盘 ✓
+  3. 「clone 后能构建」与「CI 在真实 runner 上跑通」需推送成功后才能验证
 
 ## 豁免项
 
 | 豁免内容 | 原因 | 批准人 | 跟踪任务 |
 |---|---|---|---|
-| 干净目录 clone 后构建 | 推送前无远端可 clone | — | 推送后立即验证 |
-| `PRIVACY.md` 里的「导出与删除」具体做法 | Q-006（数据备份与导出）未定案；当前版本也确实没有任何数据可导出 | — | Q-006 |
+| 干净目录 clone 后构建 | 推送未成功，无远端可 clone | — | 推送成功后立即验证 |
+| CI 在真实 runner 上跑通 | 同上（也是 T-004 的遗留豁免项） | — | 同上 |
+| `PRIVACY.md` 里「导出与删除」的具体做法 | Q-006 未定案；当前版本也确实没有任何数据可导出 | — | Q-006 |
