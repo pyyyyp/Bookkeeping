@@ -66,7 +66,7 @@
 | 未决问题数 | 15（2 红 / 10 黄 / 3 绿） |
 | 已接受的 ADR 数 | 4 |
 | 限界上下文数 | 5（Ledger / Worklog / Payroll / Calendar / Insight） |
-| 工程任务数 | 6（T-001 / T-002 / T-003 / T-004 / T-006 完成；T-005 进行中） |
+| 工程任务数 | 6（**T-001 / T-002 / T-003 / T-004 / T-005 / T-006 全部完成**） |
 | 已建工程模块数 | **11**（1 个 Kotlin JVM + 9 个 Android Library + 1 个 Application） |
 | 领域层测试数 | 14（全绿，2026-10-02 强制重跑核实） |
 | Android 侧测试数 | **6**（全部是架构断言；尚无业务测试） |
@@ -81,8 +81,8 @@
 | T-001 | Gradle 骨架与共享内核领域层（纯 JVM） | ✅ 已完成 | `09ac5df` `96f4027` |
 | T-002 | Android SDK 环境与 Android 模块骨架 | ✅ **已完成**（两档全达成） | `0d844b3` `3616f3a` `d4fdb23` `d6040b1` `32c71be` `5896ae4` `9e25711` |
 | T-003 | 架构规则的机器强制（校验任务与断言） | ✅ **已完成**（含 4 + 5 条反向验证） | 见本轮提交 |
-| T-004 | CI 流水线与追溯校验脚本 | ✅ **已完成**（真实 runner 运行待有远端后验证） | 见本轮提交 |
-| T-005 | 开源配套（LICENSE / README / 隐私声明） | 🚧 **进行中**（待署名与推送后收尾） | 见本轮提交 |
+| T-004 | CI 流水线与追溯校验脚本 | ✅ **已完成**（真实 CI 已跑通，run #5 全绿） | 见本轮提交 |
+| T-005 | 开源配套（LICENSE / README / 隐私声明） | ✅ **已完成**（已推送；clone 构建与 CI 均验证通过） | 见本轮提交 |
 | T-006 | 接入 detekt 静态分析（用户在 T-003 后追加的决定） | ✅ **已完成** | 见本轮提交 |
 
 **T-001 验收证据**：`:core:domain:build` BUILD SUCCESSFUL；
@@ -144,8 +144,17 @@
   `Permission denied`；已 `git update-index --chmod=+x`（只改模式，0 行增删）
 - **未验证**：真实 runner 上的运行（无远端），以及 `android-actions/setup-android`
   能否提供 `platforms;android-37.0` —— 均记在 T-004 卡的豁免项
+- **【2026-10-02 补记】上述两项已闭环**：仓库推送后 CI 真实运行，**前 4 次失败、第 5 次全绿**
+  （[run #5](https://github.com/pyyyyp/Bookkeeping/actions/runs/37008580857)，约 305 秒，
+  13 个步骤全部 success）。过程中改掉 4 个真实问题：
+  `android-actions/setup-android@v3` 不可用（根因未证实，job 日志需鉴权）→ 改为自己准备 SDK；
+  runner 上 `sdkmanager` 不在 PATH（**exit 127**）→ 三级降级查找；
+  `set -e` 让失败不可诊断 → 改为显式面包屑；
+  `yes | sdkmanager --licenses` 在 `pipefail` 下因 SIGPIPE 必然判失败 → 显式容忍。
+  **关键技术发现**：公开仓库的 job 日志要鉴权，但 **check-run 注解可以匿名读**，
+  所以 CI 里用 `::warning::` 发关键信息——这是这轮排障能收敛的原因。详见 T-004 卡。
 
-**T-005 验收证据（2026-10-02，进行中）**：
+**T-005 验收证据（2026-10-02，已完成）**：
 
 - **用户决策**：许可证 = **MIT**，署名 `pythonyunpeng-maker`；远端由用户创建
 - `README.md`：如实写明「工程骨架阶段，业务功能尚未实现」，含构建步骤、模块表、
@@ -157,11 +166,14 @@
 - **历史泄漏复核**：历史中新增过的 **78 个文件**全部检查，无密钥 / 本机配置命中
 - **修正一处自查错误**：`PRIVACY.md` 的网络核对命令最初会扫到 `build-logic` 里
   架构校验的**禁止清单**，看起来像有网络依赖 → 已收紧范围并写明原因
-- **未完成（被阻塞）**：**推送被拒** ——
-  `remote: Permission to pythonyunpeng-maker/Bookkeeping.git denied to pyyyyp`（403）。
-  本机缓存的 GitHub 凭据属于另一个账号，对目标仓库无写权限；本地提交完好、远端仍为空。
-  「clone 后能构建」与「CI 真实运行」两项因此仍无法验证。
-  另：该仓库当前是**公开**的（未带凭据访问返回 200）
+- **推送**：首次因**凭据账号不匹配**被拒（`denied to pyyyyp`，403；本机缓存凭据属于另一个
+  账号）——Agent 未触碰用户凭据，改为用户换远端后成功：`https://github.com/pyyyyp/Bookkeeping.git`。
+  空仓库、写权限经 `--dry-run` 确认，推送后**远端默认分支自动成为 `develop`**
+- **clone 构建验证（按 README 走一遍）**：克隆到临时目录 → 建 `local.properties` →
+  构建 **BUILD SUCCESSFUL in 10s**。顺带发现 README 两处「照着做会失败」的问题
+  （clone 地址还是旧远端、`./gradlew` 在 PowerShell 跑不了）→ 已修
+- **真实 CI 全绿**：[run #5](https://github.com/pyyyyp/Bookkeeping/actions/runs/37008580857)
+  13 步全部 success，约 305 秒（排障过程见 T-004 卡）
 
 ## 校验（已接入 CI）
 
