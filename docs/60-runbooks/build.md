@@ -183,6 +183,31 @@ dependencies {
 ./gradlew buildEnvironment
 ```
 
+## CI 与本地的一致性
+
+`.github/workflows/ci.yml` 跑的就是上面这些，**顺序也相同**：
+
+```bash
+./gradlew detekt                                          # 1 静态分析
+./gradlew lintDebug                                       # 2 Android Lint
+./gradlew verifyDomainPurity checkModuleDependencies      # 3 架构规则
+./gradlew testDebugUnitTest                               # 4 单测 + Konsist 断言
+./gradlew assembleDebug                                   # 5 构建
+pwsh ./scripts/verify-traceability.ps1                    # 6 追溯矩阵校验
+```
+
+> CI 把它们**拆成独立步骤**而不是一条命令，是为了失败时一眼看出是哪一类问题；本地合成一条跑也行。
+>
+> **本地全绿而 CI 红**，基本只可能是环境差异。已经踩到的两个：
+> - CI 自己装 SDK（需要 `platforms;android-37.0`，见上面的 SDK 章节）；
+> - `gradlew` 需要**执行位**——在 Windows 上开发时很容易丢（本仓库确实丢过一次，
+>   Git 里存成了 `100644`）→ 已用 `git update-index --chmod=+x` 修正，CI 里另留了一道
+>   `chmod +x` 兜底。
+>
+> 参与开发的完整说明见仓库根的 `CONTRIBUTING.md`。
+> ⚠️ **CI 尚未在真实 runner 上验证过**（仓库还没有远端），见
+> `docs/40-tasks/T-004-ci-pipeline.md` 的豁免项。
+
 ## 架构校验：两条任务 + 一组源码断言
 
 `verifyDomainPurity` 与 `checkModuleDependencies` 是**零第三方依赖**的 Gradle 任务

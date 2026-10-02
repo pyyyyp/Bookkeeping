@@ -66,7 +66,7 @@
 | 未决问题数 | 15（2 红 / 10 黄 / 3 绿） |
 | 已接受的 ADR 数 | 4 |
 | 限界上下文数 | 5（Ledger / Worklog / Payroll / Calendar / Insight） |
-| 工程任务数 | 6（T-001 / T-002 / T-003 / T-006 完成；T-004 / T-005 待开始） |
+| 工程任务数 | 6（T-001 / T-002 / T-003 / T-004 / T-006 完成；T-005 待开始） |
 | 已建工程模块数 | **11**（1 个 Kotlin JVM + 9 个 Android Library + 1 个 Application） |
 | 领域层测试数 | 14（全绿，2026-10-02 强制重跑核实） |
 | Android 侧测试数 | **6**（全部是架构断言；尚无业务测试） |
@@ -81,7 +81,7 @@
 | T-001 | Gradle 骨架与共享内核领域层（纯 JVM） | ✅ 已完成 | `09ac5df` `96f4027` |
 | T-002 | Android SDK 环境与 Android 模块骨架 | ✅ **已完成**（两档全达成） | `0d844b3` `3616f3a` `d4fdb23` `d6040b1` `32c71be` `5896ae4` `9e25711` |
 | T-003 | 架构规则的机器强制（校验任务与断言） | ✅ **已完成**（含 4 + 5 条反向验证） | 见本轮提交 |
-| T-004 | CI 流水线与追溯校验脚本 | ⏳ 待开始 | — |
+| T-004 | CI 流水线与追溯校验脚本 | ✅ **已完成**（真实 runner 运行待有远端后验证） | 见本轮提交 |
 | T-005 | 开源配套（LICENSE / README / 隐私声明） | ⏳ 待开始 | — |
 | T-006 | 接入 detekt 静态分析（用户在 T-003 后追加的决定） | ✅ **已完成** | 见本轮提交 |
 
@@ -130,14 +130,45 @@
   有理由的配置偏离
 - 耗时：全工程首次 `detekt` 约 20 秒，增量约 1 秒；完整门禁 58 秒
 
-## 校验（可选，建议接入 CI）
+**T-004 验收证据（2026-10-02）**：
+
+- `.github/workflows/ci.yml`：13 步，命令顺序与 `AGENTS.md` 第 6 节门禁**逐条一致**
+  （detekt → lintDebug → verifyDomainPurity/checkModuleDependencies → testDebugUnitTest
+  → assembleDebug → 追溯校验）
+- YAML 已静态校验：无 TAB、纯 LF、PyYAML 解析通过、以**字符数断言**确认文件是有效 UTF-8
+- `scripts/verify-traceability.ps1`：干净状态 **exit 0**，并打印实际检查量
+  （`矩阵 143 行；引用编号 REQ 0 / T 6 / ADR 4；需求文件 0 个；✅ 行 0 条`）
+- **反向验证 5 条全部按预期失败**：规则 1 / 2 / 3 / 4 各注入一次真实违规，
+  外加规则 0「一条编号都解析不到」守卫；每条都打印规则号 + 文件:行号
+- **修掉一个 CI 拦路石**：`gradlew` 在 Git 里是 `100644`（无执行位）→ Linux runner 会
+  `Permission denied`；已 `git update-index --chmod=+x`（只改模式，0 行增删）
+- **未验证**：真实 runner 上的运行（无远端），以及 `android-actions/setup-android`
+  能否提供 `platforms;android-37.0` —— 均记在 T-004 卡的豁免项
+
+## 校验（已接入 CI）
 
 ```bash
-# 检查矩阵中引用的 REQ / T / ADR 编号是否都存在于 docs/
-./scripts/verify-traceability.sh
+# 检查矩阵与 docs/ 是否自洽（规则见下）
+pwsh ./scripts/verify-traceability.ps1
+# Windows PowerShell 5.1：powershell -File scripts\verify-traceability.ps1
 ```
 
+由 `.github/workflows/ci.yml` 的「追溯矩阵校验」步骤执行（见 `T-004`、`CONTRIBUTING.md`）。
+
 **校验规则**
-1. 矩阵中出现的每个 `REQ-xxx` 必须存在对应文件。
-2. 每个 `REQ-*.md` 中的每条 `AC-x` 必须在矩阵中出现。
-3. 标记为 ✅ 的行必须有非空的「提交」与「测试」列。
+
+| 规则 | 内容 |
+|---|---|
+| 1 | 矩阵中出现的每个 `REQ-xxx` 必须存在对应文件 |
+| 2 | 每个 `REQ-*.md` 中的每条 `AC-x` 必须在矩阵的「需求 → 实现」表里登记 |
+| 3 | 标记为 ✅ 的行必须有非空的「提交」与「测试」列 |
+| 4 | 矩阵中出现的每个 `T-xxx` / `ADR-xxxx` 必须存在对应文件（T-004 新增） |
+| 0 | **一条编号都没解析到即判失败** —— 防止校验脚本自己悄悄失效 |
+
+**不参与校验的内容**（刻意排除，否则会产生假违规）：
+
+- HTML 注释块 `<!-- ... -->` 内的**格式示例**（本文件上方那段示例就是）；
+- `REQ-00x` / `T-00x` 这类**占位写法**（「还没建」的标记不是引用）。
+
+> **本脚本的有效性靠反向验证证明**：规则 1 / 2 / 3 / 4 与规则 0 守卫各注入过一次真实违规，
+> 每次都失败并打印了规则号、文件与行号。记录见 `T-004` 卡。
