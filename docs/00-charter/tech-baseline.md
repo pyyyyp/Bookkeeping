@@ -25,8 +25,8 @@
 |---|---|---|---|
 | Kotlin | **2.4.20** | ✅ | [Kotlin releases](https://kotlinlang.org/docs/releases.html)；2026-09-07 发布，2.4 release line，安全支持至 2027-12-03。下一版 2.5.0 计划 2026-12 |
 | AGP | **9.4.0** | ✅ | [AGP 9.4.0 release notes](https://developer.android.google.cn/build/releases/agp-9-4-0-release-notes?hl=en)；2026-09 发布 |
-| Gradle | | ⬜ | 需与 AGP 9.4.0 的要求匹配，T-001 核实 |
-| JDK | | ⬜ | 需核实 AGP 9.x 的最低 JDK 与 Kotlin 2.4 的 toolchain 要求 |
+| Gradle | **9.8.0** | ✅ | 由 `services.gradle.org/versions/current` 解析所得，已实际下载并用于构建。Wrapper 已生成 |
+| JDK | **21**（本机 21.0.1 LTS） | ✅ | T-001 实测：Gradle 9.8.0 + Kotlin 2.4.20 + `jvmToolchain(21)` 构建通过 |
 | compileSdk | | ⬜ | 取 AGP 9.4.0 支持的稳定 API level |
 | targetSdk | | ⬜ | **受应用商店要求约束**，T-001 核实当年上架要求（取决于 Q-007 是否上架） |
 | minSdk | **26** | 🔸 建议 | Android 8.0。选它的理由：免去大量兼容分支；若 Q-002 采用地理围栏，26 起 `GeofencingClient` 行为一致。**若你的目标设备更旧，请提出** |
@@ -123,4 +123,6 @@ AGP 从 8.x 跨到 9.x 是**大版本变更**，[官方有 DSL/API 迁移时间�
 | 日期 | 核实人 | 内容 |
 |---|---|---|
 | 2026 | Agent | Kotlin 2.4.20、AGP 9.4.0 从官方发布页确认 |
-| | | ⬜ 其余版本待 T-001 核实后追加到此表 |
+| 2026 | Agent | Gradle 9.8.0 由官方 versions API 解析并实际下载；JDK 21 经 T-001 实测可用 |
+| 2026 | Agent | `:core:domain` 构建通过，14 个测试全绿，`compileClasspath` 中 Android 条目数为 **0**（R3 在依赖层面得证） |
+| | | ⬜ 其余版本（Compose BOM / Hilt / Room / compileSdk / targetSdk）待 T-002 核实后追加 |
