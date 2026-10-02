@@ -1,9 +1,13 @@
 # ADR-0002 仓库路径含非 ASCII 字符的处理
 
-- 状态: **提议**（等待用户决策）
+- 状态: **已接受并已实施**
 - 日期: 2026
 - 决策者: 用户 + AndroidDDD-Agent
 - 相关: ADR-0001、T-002
+
+> **实施结果（已验证）**：仓库已迁移至 `D:\code\Android\jizhangbao`，
+> 全新构建（清空 `build/` 与 `.gradle/`）通过，`android.overridePathCheck` 已移除。
+> 详见文末「迁移后记」。
 
 ## 背景
 
@@ -75,13 +79,45 @@ AGP 官方给出的开关存在，但措辞是 **"most likely cause the build to
 - 用户决定把项目开源并期望他人能直接 clone 构建 → 迁移（他人路径大概率是 ASCII，但报错信息会让人困惑）
 - AGP 后续版本移除该开关 → 必须迁移
 
-## 迁移步骤（若采纳）
+## 迁移步骤（实际执行）
 
 ```
-1. 关闭当前会话与任何占用该目录的进程
-2. 把 D:\code\安卓相关 整体重命名为 D:\code\jizhangbao
-3. .tools/android-sdk 可留在原处由 ANDROID_HOME 指向，或一并移动
-4. 重开工作区，重新生成本机 local.properties
-5. 提交：移除 gradle.properties 中的 android.overridePathCheck
-6. 更新 docs/60-runbooks/build.md 与 tech-baseline.md 中的路径说明
+1. ✅ 创建 D:\code\Android
+2. ✅ 同卷移动仓库到 D:\code\Android\jizhangbao
+3. ✅ 一并移动 .tools（Gradle 9.8.0 + Android SDK，约 1.0 GB）
+4. ✅ 重建 local.properties，改用正斜杠的 ASCII 路径
+5. ✅ 移除 gradle.properties 中的 android.overridePathCheck
+6. ✅ 更新 build.md 与 task 卡中的路径说明
+7. ✅ 删除旧目录 D:\code\安卓相关
 ```
+
+## 迁移后记（实测记录）
+
+**迁移过程本身踩了一个坑，值得记录。**
+
+`Move-Item` 在首次执行时于 `.git` 上失败（权限拒绝），**留下了部分移动的中间状态**：
+根文件与 `.git` 已到新位置，而 `core/` `docs/` `gradle/` `.tools/` 还在旧位置。
+
+随后补搬 `.tools/gradle-9.8.0` 时，因为新位置**已存在同名目录**，
+`Move-Item` 把它**嵌套**成了 `.tools/gradle-9.8.0/gradle-9.8.0/`，导致工具链失效
+（`gradle --version` 退出码 1）。
+
+**处理方式**：没有去解开部分移动的乱麻，而是**从 `gradle-9.8.0-bin.zip` 重新解压**。
+理由是确定性——重新解压的结果是可预测的，而修补嵌套目录要依赖对中间状态的猜测。
+
+**教训**：在同一卷上移动大目录时，`Move-Item` 遇到锁会产生部分移动。
+更稳的做法是 `robocopy /MOVE`（可重试、可续传），或先复制后校验再删源。
+
+**迁移后的验证结果**
+
+| 项 | 迁移前 | 迁移后 |
+|---|---|---|
+| AGP 路径检查 | ❌ 需实验性开关 | ✅ 不再需要 |
+| `local.properties` | ❌ 中文变 `?`，报目录不存在 | ✅ 正常读取 |
+| Gradle Problems Report URL | `file:///D:/code/%E5%AE%89%E5%8D%93%E7%9B%B8%E5%85%B3/...` | `file:///D:/code/Android/jizhangbao/...` |
+| `:core:domain:build` | ✅ | ✅（清空 `build/` 与 `.gradle/` 后全新构建） |
+| `:core:common:assembleDebug` | ✅ | ✅ 产出 `common-debug.aar` |
+| 领域层测试 | 14 全绿 | 14 全绿 |
+
+> 全新构建**不带 `ANDROID_HOME` 环境变量**、只靠 `local.properties` 通过，
+> 说明配置已回到 Android 的标准路径上，不再依赖任何本机 hack。

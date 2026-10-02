@@ -27,29 +27,37 @@
 > **build-tools 已到 37.0.0，但 platform 最高只有 android-36** → 因此 `compileSdk = 36`。
 > build-tools 版本通常由 AGP 自行决定，不必手动指定。
 
-## ⚠️ AGP 9.x 的两个破坏性变更（T-002 实测踩到）
+## ⚠️ AGP 9.x 的破坏性变更（T-002 实测踩到）
 
-| 变更 | 症状 | 正确做法 |
-|---|---|---|
-| **内置 Kotlin 支持** | 加上 `org.jetbrains.kotlin.android` 插件后构建直接失败：<br>`The 'org.jetbrains.kotlin.android' plugin is no longer required for Kotlin support since AGP 9.0` | **移除该插件**。Android 模块只声明 `com.android.library` / `com.android.application`。见 [AGP built-in Kotlin](https://kotl.in/gradle/agp-built-in-kotlin) |
-| **路径非 ASCII 检查** | 仓库在 `D:\code\安卓相关`，AGP 在插件应用阶段直接拒绝应用 | 见 `ADR-0002`。当前用实验性开关 `android.overridePathCheck=true` 绕过，**建议迁移仓库到 ASCII 路径** |
+| 变更 | 症状 | 正确做法 | 状态 |
+|---|---|---|---|
+| **内置 Kotlin 支持** | 加上 `org.jetbrains.kotlin.android` 插件后构建直接失败：<br>`The 'org.jetbrains.kotlin.android' plugin is no longer required for Kotlin support since AGP 9.0` | **移除该插件**。Android 模块只声明 `com.android.library` / `com.android.application`。见 [AGP built-in Kotlin](https://kotl.in/gradle/agp-built-in-kotlin) | ⚠️ 持续适用 |
+| **路径非 ASCII 检查** | 仓库曾在 `D:\code\安卓相关`，AGP 在插件应用阶段直接拒绝应用 | 仓库已迁移至 `D:\code\Android\jizhangbao`，`android.overridePathCheck` 已移除 | ✅ 已解决 |
 
 > **AGP 8 时代的所有构建模板都不能照抄** —— 这是 ADR-0001 中预设的风险，已实际发生。
 
-## SDK 路径配置：不要用 local.properties
+## SDK 路径配置
 
-仓库路径含中文，而 Java 的 `.properties` 读取默认按 ISO-8859-1 处理，
-把中文路径写进 `local.properties` 会变成 `?`，Gradle 报 `Directory does not exist`。
+仓库已迁移到纯 ASCII 路径 `D:\code\Android\jizhangbao`，
+`local.properties` 恢复正常，与 Android Studio 的默认行为一致：
 
-**当前做法：用环境变量。**
-
-```powershell
-$env:ANDROID_HOME     = "D:\code\安卓相关\.tools\android-sdk"
-$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
+```properties
+sdk.dir=D:/code/Android/jizhangbao/.tools/android-sdk
 ```
 
-> 这是 `ADR-0002` 建议迁移仓库的实证之一：迁到 ASCII 路径后 `local.properties`
-> 即可恢复正常，与 Android Studio 的默认行为一致。
+> **为什么用正斜杠**：`.properties` 里反斜杠是转义符，写成 `D:\\code\\...` 也对，
+> 但正斜杠更不容易出错，Windows 的 Java 能正确识别。
+>
+> **历史教训**：迁移前仓库在 `D:\code\安卓相关`，中文路径写进 `local.properties`
+> 会因 Java 的 ISO-8859-1 默认编码变成 `?`，Gradle 报 `Directory does not exist`。
+> 这是 ADR-0002 建议迁移的实证之一。
+
+环境变量方式同样可用（CI 中更常见）：
+
+```powershell
+$env:ANDROID_HOME     = "D:\code\Android\jizhangbao\.tools\android-sdk"
+$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
+```
 
 ## 用本地 Gradle 构建（绕过 Wrapper 网络问题）
 

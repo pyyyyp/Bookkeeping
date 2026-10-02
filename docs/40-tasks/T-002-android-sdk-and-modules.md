@@ -34,13 +34,19 @@ Solution: Remove the 'org.jetbrains.kotlin.android' plugin from this project's b
 
 **AGP 8 时代的所有构建模板都不能照抄。** 已记入 `docs/60-runbooks/build.md`。
 
-### 发现 2：仓库路径含非 ASCII 字符（AGP 直接拒绝）
+### 发现 2：仓库路径含非 ASCII 字符（AGP 直接拒绝）—— ✅ 已解决
 
 `D:\code\安卓相关` 触发 AGP 的路径检查，插件应用阶段即失败。
-实验性开关 `android.overridePathCheck=true` **能让最简模块通过**，
+实验性开关 `android.overridePathCheck=true` 能让最简模块通过，
 但已产生一个真实次生故障：中文路径写入 `local.properties` 后变 `?`，Gradle 报目录不存在。
 
-**已新增 `ADR-0002`，建议把仓库迁移到 ASCII 路径。等待用户决策。**
+**处置**：新增 `ADR-0002` 并**已实施迁移**。仓库现位于 **`D:\code\Android\jizhangbao`**，
+实验性开关已移除，全新构建（清空 `build/` 与 `.gradle/`）通过，
+`local.properties` 恢复正常，Gradle 报告 URL 也不再被百分号编码。
+
+**迁移过程本身踩了一个坑**：`Move-Item` 在 `.git` 上失败留下部分移动状态，
+补搬时又因目标已存在而把 `gradle-9.8.0` 嵌套成 `gradle-9.8.0\gradle-9.8.0`，导致工具链失效。
+最终从 zip 重新解压解决。完整记录见 `ADR-0002` 的「迁移后记」。
 
 ## 变更清单
 
