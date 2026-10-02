@@ -24,6 +24,15 @@ androidxRoom = "2.8.5"
 # ── 第三方（本轮实际使用）──
 hilt = "2.60.1"
 
+# ── 架构断言（T-003）──
+# ⚠️ Konsist 0.17.3 内嵌 kotlin-compiler-embeddable **2.0.21**。**不要**把它顶到 2.4.x：
+# 实测一旦顶上去，Konsist 对任何文件（哪怕一行）都报 "Failed to parse Kotlin file"，
+# 没有「升级编译器」这条路。
+# 它也不需要 Kotlin Gradle 插件（纯 library，`testImplementation` 即可）——这正是它能
+# 用在 AGP 9 内置 Kotlin 项目里的原因：detekt 1.23.8 就是死在硬依赖 kotlin-android 上。
+# 已知代价：最后一次发布是 2024-12，对 Kotlin 2.4 语法没有前向兼容承诺（见 ADR-0004）。
+konsist = "0.17.3"
+
 # ── 测试 ──
 junit4 = "4.13.2"
 
@@ -72,6 +81,9 @@ androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref =
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
 
+# ── 架构断言：只在 test 源集里用（T-003）──
+konsist = { module = "com.lemonappdev:konsist", version.ref = "konsist" }
+
 # ── 仅供 build-logic 的约定插件编译期使用（compileOnly）──
 # 约定插件里用 pluginManager.apply("...") 按 id 应用这些插件，
 # 真正的插件实现由消费方构建（root build.gradle.kts 的 apply false 声明）提供。
@@ -86,6 +98,8 @@ hilt-gradle-plugin = { module = "com.google.dagger:hilt-android-gradle-plugin", 
 # 无版本号：它们的版本跟随仓库本身，重命名或迁移时只需改 build-logic。
 jizhangbao-android-library = { id = "jizhangbao.android.library" }
 jizhangbao-android-application = { id = "jizhangbao.android.application" }
+# 应用在根项目上：注册 verifyDomainPurity / checkModuleDependencies（T-003）
+jizhangbao-architecture = { id = "jizhangbao.architecture" }
 
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 # ⚠️ 不要为 Android 模块添加 'org.jetbrains.kotlin.android'：

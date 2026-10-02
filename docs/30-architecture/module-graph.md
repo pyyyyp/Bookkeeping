@@ -1,6 +1,6 @@
 # 模块依赖图与依赖规则
 
-- 最后更新: 2026-10-02（T-002 第二档：11 个模块全部落地，见 ADR-0003）
+- 最后更新: 2026-10-02（T-003：R2/R3/R7/R8 已机器强制，见 `ADR-0004`）
 
 > 本文与 `settings.gradle.kts` 必须保持一致。新增模块必须同步更新本文并新增 ADR。
 
@@ -28,26 +28,33 @@
 
 ## 依赖规则
 
-| 规则 | 内容 | 强制手段 | 状态 |
+| 规则 | 内容 | 强制手段（执行点） | 状态 |
 |---|---|---|---|
 | R1 | `feature:*` 可依赖 `core:domain`、`core:ui`、`core:common` 及自身内部分层 | 编译期 | ✅ |
-| R2 | `feature:*` **不得**依赖另一个 `feature:*` | 架构断言测试 | ⬜ 待接入 |
-| R3 | `domain` 层禁止 Android / 框架 / DI / 序列化依赖 | `kotlin("jvm")` 模块类型 | ✅ |
+| R2 | `feature:*` **不得**依赖另一个 `feature:*` | **依赖声明**：`checkModuleDependencies`<br>**源码引用**：`ArchitectureTest.R2` | ✅ 双向已接入 |
+| R3 | `domain` 层禁止 Android / 框架 / DI / 序列化依赖 | `kotlin("jvm")` 模块类型（`:core:domain`）<br>+ `verifyDomainPurity`（含 feature 内的 `domain` 包）<br>+ `checkModuleDependencies`（`:core:domain` 的依赖面） | ✅ 三层 |
 | R4 | `data` 实现 `domain` 声明的接口（依赖倒置） | 编译期 | ✅ |
-| R5 | `presentation` 只依赖 `domain`/`application` 抽象 | 架构断言测试 | ⬜ |
-| R6 | 外部模型（DTO/Entity/JSON）不得进入 `domain` | 架构断言测试 | ⬜ |
-| R7 | `core:*` 不得依赖任何 `feature:*` | 编译期 | ✅ |
-| R8 | `app` 不含业务规则，只做组装 | 代码评审 | ✅ |
-| R9 | `domain` 不得引用 `application` / `presentation` | 编译期 | ✅ |
-| R10 | 同上下文内 `data` 只被 `di` 与自身使用 | 架构断言测试 | ⬜ |
-| R11 | 禁止用 `api(...)` 暴露实现依赖 | 代码评审 | ✅ |
-| R12 | 每个 feature 可独立构建与测试 | CI | **✅ 构建**（11 个模块均可独立 `assembleDebug`）／⬜ 测试（尚无测试） |
+| R5 | `presentation` 只依赖 `domain`/`application` 抽象 | `ArchitectureTest.R5` | ⚠️ 已接入，**暂无靶子** |
+| R6 | 外部模型（DTO/Entity/JSON）不得进入 `domain` | `ArchitectureTest.R6` | ⚠️ 已接入，**部分有靶子** |
+| R7 | `core:*` 不得依赖任何 `feature:*` | `checkModuleDependencies` | ✅ |
+| R8 | `app` 不含业务规则，只做组装 | `checkModuleDependencies`（只有 `:app` 能依赖 feature）<br>+ `ArchitectureTest.R8`（只有 `:app` 能引用 `com.jizhangbao.app.*`） | ✅ 依赖面 ✅ / 源码面 ✅ |
+| R9 | `domain` 不得引用 `application` / `presentation` | 编译期 + `ArchitectureTest.R6` | ✅ |
+| R10 | 同上下文内 `data` 只被 `di` 与自身使用 | `ArchitectureTest.R10` | ⚠️ 已接入，**暂无靶子** |
+| R11 | 禁止用 `api(...)` 暴露实现依赖 | 代码评审 | ⬜ 无机器手段 |
+| R12 | 每个 feature 可独立构建与测试 | CI（T-004） | **✅ 构建**／⬜ 测试（尚无测试） |
 
-> 「强制手段」为「架构断言测试」的规则，需要在接入 Konsist 或自定义 Gradle 任务后才能标记为 ✅。
+> 执行点为什么这样分，见 **`ADR-0004`**。一句话：**模块图的事实源是 Gradle，类型引用的事实源是源码**，
+> 两边各自强制一半，合起来才闭合。
 >
-> **R12 的诚实状态**：`:feature:<x>:assembleDebug` 已实测可独立构建；
-> 但 `:feature:<x>:test` 目前是 `NO-SOURCE` —— **能跑通不等于有验证**，
-> 等第一个 feature 有领域测试时才能标 ✅。
+> **两处诚实说明**：
+>
+> - **R5 / R10 目前「已接入但没有靶子」**：它们针对 `presentation` 与 `data` 包，而这些包今天还不存在
+>   （feature 模块只有构建脚本）。断言的存在经过**反向验证**证明有效（注入违规文件后确实失败），
+>   但在真实业务代码落地前，它们是「装好了瞄准镜、还没有目标」的状态。
+> - **R12 的诚实状态**：`:feature:<x>:assembleDebug` 已实测可独立构建；
+>   但 `:feature:<x>:test` 目前是 `NO-SOURCE` —— **能跑通不等于有验证**。
+>
+> **R11 仍是纯人工**：它需要判断「这条依赖是不是实现细节」，机器判别容易误报；由代码评审承担。
 
 ## 模块清单
 
@@ -100,7 +107,16 @@
 ## 校验命令
 
 ```bash
-./gradlew checkModuleDependencies      # 模块依赖断言
-./gradlew verifyDomainPurity           # domain 层框架依赖扫描
-./gradlew :app:testDebugUnitTest       # 含架构断言测试
+./gradlew verifyDomainPurity checkModuleDependencies   # 两条零依赖校验任务（R2/R3/R7/R8）
+./gradlew :core:testing:testDebugUnitTest              # Konsist 架构断言（R2/R5/R6/R8/R10）
+./gradlew build                                        # 上面全部：两个任务已接入每个模块的 check
 ```
+
+> 三条命令都由 `./gradlew build` 自动触发，不必单独记得。
+> **注意**：`:core:testing:testDebugUnitTest` 会被 Gradle 的 up-to-date 检查影响——
+> 因为它扫描的是**别的模块**的源码，所以 `core/testing/build.gradle.kts` 里
+> 显式把这些源码声明成了该测试任务的输入。删掉那段会**静默**让架构断言失效。
+> 详见 `ADR-0004` 决策 3。
+>
+> `./gradlew detekt` **目前不可用**（AGP 9 内置 Kotlin 下没有可用的 detekt 版本，
+> 见 `ADR-0004` 决策 4 与 `tech-baseline.md`），这是已知缺口，不是遗漏。

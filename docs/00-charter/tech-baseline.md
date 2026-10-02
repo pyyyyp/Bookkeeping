@@ -40,8 +40,8 @@
 | Coil | **3.6.3** | ✅ | 已核实版本但**本轮未引入**：尚无图片加载需求 |
 | androidx.datastore | **1.2.1** | ✅ | 已核实版本但**本轮未引入**：尚无需要持久化的偏好项 |
 | androidx.navigation | **2.10.2** | ✅ | 已核实版本但**本轮未引入**：出现第二个页面时才需要 |
-| detekt | **1.23.8**（稳定线） | ⚠️ **未验证兼容性** | 2.x 只有 `2.0.0-alpha.6`（group 换成 `dev.detekt`）。1.23.8 是否兼容 Kotlin 2.4.20 / Gradle 9.8 **未实测**；归 T-003 |
-| Konsist | **0.17.3** | ⚠️ **未验证兼容性** | 用于 R2/R5/R6 架构断言。是否兼容 Kotlin 2.4.20 **未实测**；归 T-003 |
+| detekt | **无可可用版本** | ❌ **不可用（T-003 实测）** | `1.23.8` 的 Gradle 插件注册 Android 任务的唯一入口是 `plugins.withId("kotlin-android")`——AGP 9 内置 Kotlin 下该插件不存在也不能应用，因此它**静默地**不创建任何 `detekt<Variant>` 任务（构建照常成功）；1.x 已 EOL。唯一覆盖 Gradle 9 + Kotlin 2.4 + AGP 9 的是**预发布** `2.0.0-alpha.6`（group `dev.detekt`）。**待用户裁决**，见 `ADR-0004` 决策 4 |
+| Konsist | **0.17.3** | ✅ **已实测可用（T-003）** | 无 Gradle 插件、不需要 Kotlin Gradle 插件（纯 `testImplementation`）——这正是它能在 AGP 9 内置 Kotlin 项目里工作的原因。实测在本仓库解析出 18 文件 / 15 类，反向验证 5 条断言全部按预期失败。⚠️ **约束**：内嵌 `kotlin-compiler-embeddable:2.0.21`，**不得**被顶到 2.4.x（顶上去则全体断言因 `Failed to parse Kotlin file` 失效）；⚠️ 最后一次发布 2024-12，对 Kotlin 2.4 语法无前向兼容承诺 |
 
 > 🔸 **建议** 表示这是我给出的默认值而非官方事实，你随时可以推翻。
 
@@ -53,7 +53,7 @@ AGP 从 8.x 跨到 9.x 是**大版本变更**，[官方有 DSL/API 迁移时间�
 | 风险 | 对策 | 当前状态 |
 |---|---|---|
 | 大量构建脚本 DSL 已废弃或移除 | T-001 以 AGP 9.4.0 官方文档为准写构建脚本，**不照搬任何 AGP 8 时代的模板** | ⚠️ **已实际发生**：`org.jetbrains.kotlin.android` 插件在 AGP 9.0 起不再需要，加上即构建失败 |
-| 生态插件（Hilt/Konsist/detekt）可能尚未适配 9.x | 逐个验证可用性；不兼容的降级并在 ADR 中记录 | ✅ Hilt 2.60.1 / KSP 2.3.12 / Room 2.8.5 已实测通过（T-002 第二档）；⚠️ Konsist / detekt **仍未实测**（T-003） |
+| 生态插件（Hilt/Konsist/detekt）可能尚未适配 9.x | 逐个验证可用性；不兼容的降级并在 ADR 中记录 | ✅ Hilt 2.60.1 / KSP 2.3.12 / Room 2.8.5 / **Konsist 0.17.3** 已实测通过；❌ **detekt 无可用版本**（1.x 硬依赖 `kotlin-android`，2.x 仅预发布），见 `ADR-0004` |
 | 「用最新」与「生态兼容」冲突 | **以能构建通过为准**。若某插件卡住，退回其支持的 AGP 版本并新增 ADR | — |
 | **仓库路径含非 ASCII 字符** | 已迁移至 `D:\code\Android\jizhangbao`，见 `ADR-0002` | ✅ 已解决 |
 
@@ -136,3 +136,4 @@ AGP 从 8.x 跨到 9.x 是**大版本变更**，[官方有 DSL/API 迁移时间�
 | 2026-10-02 | Agent | **T-002 第二档构建验证**：11 个模块全部构建通过，`:app:assembleDebug` 产出 11.65 MB APK（`versionCode=1` / `versionName=0.1.0` / `minSdk=26` / `targetSdk=36` / `compileSdk=37` / 启动 Activity `com.jizhangbao.app.MainActivity`）；`lintDebug` 0 error / 2 warning；`:core:domain:test` 强制重跑 14 个测试 0 失败 |
 | 2026-10-02 | Agent | **生效的 Kotlin 版本实测**：`./gradlew buildEnvironment` 显示 `org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.10 -> 2.4.20`。AGP 9.4.0 自身依赖 KGP **2.2.10**，是**根构建脚本里 `apply false` 的 Kotlin 插件别名**把它顶到 2.4.20。该声明是承重的，见 ADR-0003 决策 2 |
 | 2026-10-02 | Agent | **compileSdk 修正**：T-001/T-002 第一档记录的「SDK 中 platform 最高只有 36」是**当时未安装**而非不存在；`sdkmanager --list` 有 `android-37.0/37.1/37.2`，已装 `platforms;android-37.0` |
+| 2026-10-02 | Agent | **T-003 架构校验工具核实**：Konsist 0.17.3 实测可用（无插件、无需 KGP，内嵌编译器 2.0.21 且**不可顶版本**）；**detekt 1.23.8 不可用**（Android 任务注册硬依赖 `kotlin-android`，在 AGP 9 内置 Kotlin 下静默失效）；唯一可用的 detekt 2.x 仍是 `2.0.0-alpha.6` 预发布。结论与备选方案见 `ADR-0004` |

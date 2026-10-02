@@ -31,5 +31,10 @@ gradlePlugin {
             id = "jizhangbao.android.application"
             implementationClass = "com.jizhangbao.buildlogic.AndroidApplicationConventionPlugin"
         }
+        // 应用在**根项目**上：注册 verifyDomainPurity / checkModuleDependencies 两个聚合校验任务
+        register("architecture") {
+            id = "jizhangbao.architecture"
+            implementationClass = "com.jizhangbao.buildlogic.ArchitectureVerificationPlugin"
+        }
     }
 }
