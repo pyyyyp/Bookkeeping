@@ -1,9 +1,99 @@
 [versions]
-# 已核实：https://kotlinlang.org/docs/releases.html（2026-09-07 发布，2.4 release line）
-kotlin = "2.4.20"
+# ═══════════════════════════════════════════════════════════════════
+# 版本唯一来源。所有版本在写入前都已从官方仓库元数据核实（核实日期 2026-10-02）。
+# 核实方式：读取 maven-metadata.xml（dl.google.com / repo1.maven.org / plugins.gradle.org），
+# 取「排除 alpha/beta/rc/dev/snapshot 后的最高版本」。
+# 本表的每一次变更都必须同步回填 docs/00-charter/tech-baseline.md。
+# ═══════════════════════════════════════════════════════════════════
+
+# ── 构建工具链 ──
+kotlin = "2.4.20"                         # https://kotlinlang.org/docs/releases.html
+agp = "9.4.0"                             # https://developer.android.com/build/releases/agp-9-4-0-release-notes
+# KSP 自 2.3.0 起改为独立版本线（不再带 Kotlin 前缀）。
+# Google 官方 AGP 9 升级指南要求：内置 Kotlin 下 KSP 必须 >= 2.3.6。
+# 来源：android/skills → build/agp/agp-9-upgrade/references/ksp-kapt.md
+ksp = "2.3.12"
+
+# ── AndroidX（本轮实际使用）──
+composeBom = "2026.09.00"                 # BOM 统一管理 compose.ui / material3 / ui-test 版本
+androidxActivity = "1.13.0"
+androidxCore = "1.19.1"
+androidxLifecycle = "2.11.0"
+androidxRoom = "2.8.5"
+
+# ── 第三方（本轮实际使用）──
+hilt = "2.60.1"
+
+# ── 测试 ──
+junit4 = "4.13.2"
+
+# ── 已核实但本轮未使用（ADR-0001 已选型，等有真实消费者时再加 library 条目）──
+# 之所以先记录版本：避免日后凭记忆填错。见 tech-baseline.md。
+androidxNavigation = "2.10.2"             # 出现第二个页面时引入
+androidxDatastore = "1.2.1"               # 有了第一项需要持久化的用户偏好时引入
+androidxHilt = "1.4.0"                    # @HiltViewModel + hilt-navigation-compose
+coroutines = "1.11.0"
+kotlinxSerialization = "1.11.0"
+retrofit = "3.0.0"                        # v1 无后端（先用 Mock），有真实契约时引入
+okhttp = "5.5.0"
+coil = "3.6.3"
+turbine = "1.2.1"
+truth = "1.4.5"
 
 [libraries]
+# ── Kotlin 标准测试库 ──
+# 注意：Android 模块内不能用 kotlin("test") 简写 —— AGP 9 内置 Kotlin 时
+# Kotlin Gradle 插件并未应用，该 DSL helper 不存在。必须写全坐标。
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+junit4 = { module = "junit:junit", version.ref = "junit4" }
+
+# ── AndroidX 基础 ──
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivity" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidxLifecycle" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidxLifecycle" }
+
+# ── Compose（版本由 BOM 统一约束，故不写 version）──
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
+compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+
+# ── Room ──
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "androidxRoom" }
+androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "androidxRoom" }
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "androidxRoom" }
+
+# ── Hilt ──
+hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
+hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
+
+# ── 仅供 build-logic 的约定插件编译期使用（compileOnly）──
+# 约定插件里用 pluginManager.apply("...") 按 id 应用这些插件，
+# 真正的插件实现由消费方构建（root build.gradle.kts 的 apply false 声明）提供。
+android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+compose-compiler-gradle-plugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
+ksp-gradle-plugin = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "ksp" }
+hilt-gradle-plugin = { module = "com.google.dagger:hilt-android-gradle-plugin", version.ref = "hilt" }
 
 [plugins]
+# ── 本项目自己的约定插件（来自 build-logic 这个 included build）──
+# 无版本号：它们的版本跟随仓库本身，重命名或迁移时只需改 build-logic。
+jizhangbao-android-library = { id = "jizhangbao.android.library" }
+jizhangbao-android-application = { id = "jizhangbao.android.application" }
+
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+# ⚠️ 不要为 Android 模块添加 'org.jetbrains.kotlin.android'：
+# AGP 9.0 起内置 Kotlin，加上该插件会直接构建失败。见 docs/60-runbooks/build.md
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+# Compose 编译器自 Kotlin 2.0 起随 Kotlin 版本发布，故用 kotlin 版本号
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
