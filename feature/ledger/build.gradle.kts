@@ -9,11 +9,13 @@ android {
 dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:ui"))
+
+    // 领域测试：只需要断言与测试运行器，不需要 Android 测试设施
+    testImplementation(libs.junit4)
 }
 
-// Ledger 账本（核心域）：账目条目、分类、账户。
-// ⚠️ 聚合尚未落地 —— 领域模型等 Q-005（多账户）/Q-008（记账日）/Q-010（去重）
-// 澄清后再写，不在这里猜。见 docs/20-domain/open-questions.md
+// Ledger 账本（核心域）：账目条目、分类。
+// 第一次业务切片见 REQ-001 与 docs/20-domain/ledger-model.md；
+// 范围取舍（不做账户/多币种、物理删除、预置只读分类）见 ADR-0005。
 //
-// 模块与依赖现在就位，因为**模块边界 = 上下文边界**，而边界越晚划越贵。
 // 本模块不得依赖任何其他 :feature:*（R2）。
