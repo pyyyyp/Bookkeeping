@@ -15,4 +15,9 @@ plugins {
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.hilt) apply false
+
+    // 本插件**要应用**（没有 apply false）：它是全工程聚合校验任务的定义处。
+    // 它注册 verifyDomainPurity / checkModuleDependencies，并把它们接入每个模块的 check。
+    // 见 docs/30-architecture/module-graph.md 与 docs/40-tasks/T-003-architecture-verification.md
+    alias(libs.plugins.jizhangbao.architecture)
 }
