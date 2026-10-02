@@ -65,11 +65,11 @@
 | 未决问题数 | 15（2 红 / 10 黄 / 3 绿） |
 | 已接受的 ADR 数 | 3 |
 | 限界上下文数 | 5（Ledger / Worklog / Payroll / Calendar / Insight） |
-| 工程任务数 | 5（T-001 完成；T-002 进行中；T-003 ~ T-005 待开始） |
+| 工程任务数 | 5（T-001 / T-002 完成；T-003 ~ T-005 待开始） |
 | 已建工程模块数 | **11**（1 个 Kotlin JVM + 9 个 Android Library + 1 个 Application） |
 | 领域层测试数 | 14（全绿，2026-10-02 强制重跑核实） |
 | Android 侧测试数 | 0（`NO-SOURCE`） |
-| 可交付产物 | `app-debug.apk`（11.65 MB） |
+| 可交付产物 | `app-debug.apk`（11.65 MB，已在模拟器上启动验证） |
 
 ## 工程任务进度
 
@@ -78,7 +78,7 @@
 | 任务 | 内容 | 状态 | 提交 |
 |---|---|---|---|
 | T-001 | Gradle 骨架与共享内核领域层（纯 JVM） | ✅ 已完成 | `09ac5df` `96f4027` |
-| T-002 | Android SDK 环境与 Android 模块骨架 | 🚧 **进行中**（第二档完成，仅剩真机启动验证） | `0d844b3` `3616f3a` `d4fdb23` + 本轮 |
+| T-002 | Android SDK 环境与 Android 模块骨架 | ✅ **已完成**（两档全达成） | `0d844b3` `3616f3a` `d4fdb23` `d6040b1` `32c71be` `5896ae4` `9e25711` |
 | T-003 | 架构规则的机器强制（校验任务与断言） | ⏳ 待开始 | — |
 | T-004 | CI 流水线与追溯校验脚本 | ⏳ 待开始 | — |
 | T-005 | 开源配套（LICENSE / README / 隐私声明） | ⏳ 待开始 | — |
@@ -95,8 +95,10 @@
 - `./gradlew lintDebug` **0 error / 2 warning**（`MissingApplicationIcon`、`DataExtractionRules`）
 - `./gradlew :core:domain:test --rerun` **14 tests / 0 failures / 0 errors**
 - 11 个模块全部可独立构建；`:app:testDebugUnitTest` 为 `NO-SOURCE`（**无测试，不等于通过**）
-- **未完成**：真机启动验证（等用户确认是否安装到其个人手机）
+- `adb install -r` → 启动 `MainActivity` → 截图确认占位首页渲染正常，logcat 无 FATAL
+  （**设备是 MuMu 模拟器**，伪装成 HUAWEI HBP-AL00；Android 12 / API 32。真机未验证）
 - **已知隐患**：生效的 Kotlin 版本靠根构建脚本的插件别名承载，删掉会静默退回 2.2.10（ADR-0003）
+- **移交 T-003**：detekt / Konsist 兼容性；**待定**：Q-020 视觉设计
 
 ## 校验（可选，建议接入 CI）
 

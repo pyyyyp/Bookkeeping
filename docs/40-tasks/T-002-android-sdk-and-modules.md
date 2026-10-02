@@ -1,6 +1,6 @@
 # T-002 Android SDK 环境与 Android 模块骨架
 
-- 状态: **进行中**（第一档：工具链验证 ✅；第二档：11 个模块全部落地并产出真实 APK ✅；**仅剩真机启动验证待用户确认**）
+- 状态: **已完成**（2026-10-02。两档全部达成，含模拟器启动验证）
 - 需求: —（工程基础设施）
 - 上下文: 全部
 - 依赖: T-001
@@ -72,8 +72,8 @@ Solution: Remove the 'org.jetbrains.kotlin.android' plugin from this project's b
 - [x] `:app`（`@HiltAndroidApp` + `MainActivity` + 占位首页 + 资源）
 - [x] `:feature:ledger` / `worklog` / `payroll` / `calendar` / `insight` 五个上下文模块骨架
 - [x] 新增 `ADR-0003` 记录 AGP 9 构建基线决策
-- [ ] `docs/60-runbooks/build.md` 补齐「他人 clone 后如何构建」——**已补**（含 SDK 安装、约定插件说明、Room 验证配方）
-- [ ] 真机启动验证（待用户确认是否安装到已连接的华为 HBP-AL00）
+- [x] `docs/60-runbooks/build.md` 补齐「他人 clone 后如何构建」——**已补**（含 SDK 安装、约定插件说明、Room 验证配方）
+- [x] 启动验证（MuMu 模拟器，Android 12 / API 32）—— 已装、已启动、已截图
 
 ## 第二档执行记录（2026-10-02）
 
@@ -112,8 +112,16 @@ Solution: Remove the 'org.jetbrains.kotlin.android' plugin from this project's b
 - [x] `./gradlew assembleDebug lintDebug` —— **验证: 自动化**，BUILD SUCCESSFUL；
       lint **0 error / 2 warning**（`MissingApplicationIcon`、`DataExtractionRules`）
 - [x] 11 个模块全部独立构建通过（`:core:domain` + 4 个 `:core:*` + 5 个 `:feature:*` + `:app`）
-- [ ] 真机/模拟器上能启动并显示占位首页 —— **未执行**。已连接的华为 HBP-AL00（Android 12 / API 32）
-      与 minSdk 26 兼容，但安装到用户个人手机属于对用户设备的副作用，**等用户确认后再做**
+- [x] `adb install -r` 到已连接的设备，启动 `MainActivity` 并显示占位首页 —— **验证: 手工（有截图）**
+      `mCurrentFocus=com.jizhangbao.app/com.jizhangbao.app.MainActivity`，logcat 无 FATAL；
+      截图确认渲染出「记账宝 / 工程骨架已就绪，界面待实现」，Compose 与边缘到边缘均正常
+- [x] 11 个模块全部独立构建通过（`:core:domain` + 4 个 `:core:*` + 5 个 `:feature:*` + `:app`）
+
+> **关于那台设备（重要更正）**：`adb` 报的属性是 `HUAWEI HBP-AL00`，但 logcat 里能看到
+> `product: YXArkNights-12.0`、`engine: NEMUX`、`package: mumu`、x86_64 宿主 + arm64 原生桥，
+> 即**这是一台 MuMu 模拟器**（伪装成华为机型），Android 12 / API 32。
+> 任务卡的验收写的是「真机**或**模拟器」，因此这条成立；
+> 但**不能**因此声称「已在真机上验证过」——真机（尤其是华为的权限与后台策略）仍未验证。
 
 ## 风险
 
@@ -128,11 +136,13 @@ Solution: Remove the 'org.jetbrains.kotlin.android' plugin from this project's b
 
 ## 完成情况
 
-- 提交: 见 `90-trace/traceability.md` 的 T-002 行
-- 未决:
-  1. **真机启动验证**（等用户确认是否安装到 HBP-AL00）
-  2. `detekt` / `Konsist` 的 AGP 9 兼容性（归 T-003）
-  3. Q-020 视觉设计（`:core:ui` 现用 Material 3 默认色板，带 `TODO(Q-020)` 单点降级）
+- 提交: `0d844b3` `3616f3a` `d4fdb23`（第一档）、`d6040b1` `32c71be` `5896ae4` `9e25711`（第二档）
+- **状态: 已完成**，本分支合并回 `develop`
+- 未决（已移交，不阻塞本卡）:
+  1. `detekt` / `Konsist` 的 AGP 9 兼容性 —— 归 **T-003**
+  2. Q-020 视觉设计（`:core:ui` 现用 Material 3 默认色板，带 `TODO(Q-020)` 单点降级）
+  3. 真机（非模拟器）验证 —— 本卡只在 MuMu 模拟器上验证过启动；
+     华为真机的后台/权限策略是另一类风险，等有需要时再验
 - 环境备注: Gradle 9.8.0 与 Android SDK 均在 `.tools/`（已 gitignore）；
   需要 `platforms;android-37.0`（不再是 36）；Wrapper 已恢复可用
 
