@@ -1,8 +1,10 @@
 package com.jizhangbao.ledger.di
 
 import com.jizhangbao.core.domain.LedgerTotalsReader
+import com.jizhangbao.ledger.data.repository.CategoryRepositoryImpl
 import com.jizhangbao.ledger.data.repository.LedgerEntryRepositoryImpl
 import com.jizhangbao.ledger.data.totals.LedgerTotalsReaderImpl
+import com.jizhangbao.ledger.domain.repository.CategoryRepository
 import com.jizhangbao.ledger.domain.repository.LedgerEntryRepository
 import dagger.Binds
 import dagger.Module
@@ -30,6 +32,19 @@ internal abstract class LedgerModule {
     internal abstract fun bindLedgerEntryRepository(
         impl: LedgerEntryRepositoryImpl,
     ): LedgerEntryRepository
+
+    /**
+     * 分类仓储（`REQ-004`）。
+     *
+     * 与条目仓储分开绑定：两个聚合各有自己的生命周期
+     * （条目可以物理删除，分类只能归档 —— 见 `ADR-0009`），
+     * 合成一个仓储只会让"哪个方法适用于哪个聚合"变得含糊。
+     */
+    @Binds
+    @Singleton
+    internal abstract fun bindCategoryRepository(
+        impl: CategoryRepositoryImpl,
+    ): CategoryRepository
 
     /**
      * 跨上下文读端口（`ADR-0008`）：契约在内核，实现在这里，消费方是 `:feature:insight`。

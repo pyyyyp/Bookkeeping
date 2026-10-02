@@ -35,15 +35,15 @@
 | REQ-003 | AC-6 取消编辑不改变任何东西 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | 真机冒烟：改成 999.00 后取消 → 数据库 `4 / 4804500` 前后一致、列表仍 `¥40000.00`；`LedgerViewModelEditTest`（取消时 `updateCallCount == 0`）。⚠️ 自动化点击没点中「取消编辑」按钮，**"退出编辑态"这个视觉结果未验到**（数据侧的保证已验证） | ✅ |
 | REQ-003 | AC-7 编辑后重启仍在 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | 真机冒烟：`am force-stop` 后重启，列表仍是 `¥40000.00`；数据库直查一致 | ✅ |
 | REQ-003 | AC-8 编辑已不存在的条目时给出明确结果 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | `LedgerEntryRepositoryUpdateTest`（0 行 → `EntryNotFound` 且**不插入**）+ `ReviseLedgerEntryUseCaseTest` + `LedgerViewModelEditTest`；**反向验证**：把该分支改成无条件成功 → 恰好那一条失败 | ✅ |
-| REQ-004 | AC-1 新建分类并立刻可用 | Ledger | `Category` | T-012 | - | - | ⏳ 待实现 |
-| REQ-004 | AC-2 重命名后历史条目跟着显示新名字 | Ledger | `Category` | T-012 | - | - | ⏳ 待实现 |
-| REQ-004 | AC-3 归档后不再出现在选择器，但历史条目照旧显示 | Ledger | `Category` | T-012 | - | - | ⏳ 待实现 |
-| REQ-004 | AC-4 归档可以撤销 | Ledger | `Category` | T-012 | - | - | ⏳ 待实现 |
-| REQ-004 | AC-5 同名分类被拒绝 | Ledger | `Category` | T-012 | - | - | ⏳ 待实现 |
-| REQ-004 | AC-6 名字不合法时被拒绝 | Ledger | `Category` | T-012 | - | - | ⏳ 待实现 |
-| REQ-004 | AC-7 预置分类是只读的 | Ledger | `Category` | T-012 | - | - | ⏳ 待实现 |
-| REQ-004 | AC-8 归档一个仍被引用的分类不会破坏那些条目 | Ledger | `Category` | T-012 | - | - | ⏳ 待实现 |
-| REQ-004 | AC-9 升级后原有数据都在 | Ledger | `Category` | T-012 | - | - | ⏳ 待实现 |
+| REQ-004 | AC-1 新建分类并立刻可用 | Ledger | `Category` | T-012 | 见本轮提交 | **真机冒烟**：顶栏「分类」→ 新建 `pet` → 出现在「我的分类」，数据库有 `custom-e6e90f97-…` / `pet` / `archived=0`；关闭对话框后表单选择器里就有 `pet`；`CategoryUseCasesTest`（新建落库、标识带 `custom-` 前缀） | ✅ |
+| REQ-004 | AC-2 重命名后历史条目跟着显示新名字 | Ledger | `Category` | T-012 | 见本轮提交 | `CategoryUseCasesTest`（改名只换名字、标识不变、改成自己不算重名）+ `CategoryAggregateTest`。⚠️ **"历史条目显示新名字"这一段真机没验到**（自动化没能把引用该分类的那笔账存下来）；机制上是成立的：条目只存 id，名字由状态解析 | ✅ |
+| REQ-004 | AC-3 归档后不再出现在选择器，但历史条目照旧显示 | Ledger | `Category` | T-012 | 见本轮提交 | `LedgerUiStateCategoryTest`（可选分类排除已归档 / 显示名仍能解析已归档 / 查不到退回标识）+ `CategoryUseCasesTest`（归档仍在 `all()` 里——数据层刻意不过滤） | ✅ |
+| REQ-004 | AC-4 归档可以撤销 | Ledger | `Category` | T-012 | 见本轮提交 | `CategoryUseCasesTest`（归档 → 恢复）+ `CategoryAggregateTest`（两个方向都幂等） | ✅ |
+| REQ-004 | AC-5 同名分类被拒绝 | Ledger | `Category` | T-012 | 见本轮提交 | `CategoryUseCasesTest`（重名被拒**且不落库** / 忽略空白与大小写 / 已归档的名字可以让出来 / 改名撞别人被拒） | ✅ |
+| REQ-004 | AC-6 名字不合法时被拒绝 | Ledger | `Category` | T-012 | 见本轮提交 | `CategoryAggregateTest`（空 / 全空格 / 超 20 字被拒；正好 20 字合法；前后空白被去掉）+ 用例返回 `CategoryNameInvalid` | ✅ |
+| REQ-004 | AC-7 预置分类是只读的 | Ledger | `Category` | T-012 | 见本轮提交 | **真机冒烟**：对话框里内置分类只列出名字、**没有任何按钮**，并显示"内置分类不能改名或归档 —— 否则恢复默认就说不清该恢复成什么了" | ✅ |
+| REQ-004 | AC-8 归档一个仍被引用的分类不会破坏那些条目 | Ledger | `Category` | T-012 | 见本轮提交 | `CategoryUseCasesTest` + `CategoryRepositoryImplTest`（归档只是把 `archived` 置位，行永远在、不删）。⚠️ 真机上**没构造"归档一条已被引用的分类"**（那笔账没存上），所以这一条的真机证据缺一半 | ✅ |
+| REQ-004 | AC-9 升级后原有数据都在 | Ledger | `Category` | T-012 | 见本轮提交 | **真机冒烟**：迁移 SQL 与 Room 生成的 schema **逐字一致**、`1.json` 一字节未变；在带 4 条真实账目的模拟器上装 v2 → `user_version` 1→2、**4 条与合计 `4804500` 一分未少**、没崩、`category` 表建成、`room_master_table` 在 | ✅ |
 
 **状态图例**：✅ 已完成 / 🚧 进行中 / ⏳ 待开始 / ❌ 已废弃
 
@@ -100,15 +100,15 @@
 | 指标 | 数值 |
 |---|---|
 | 需求总数 | **4**（`REQ-001` 记账；`REQ-002` 本月合计；`REQ-003` 编辑条目；`REQ-004` 自定义分类） |
-| 已完成的 AC 数 | **25 / 34**（`REQ-001` 10 + `REQ-002` 7 + `REQ-003` 8 全部 ✅；`REQ-004` 的 9 条待 `T-012`） |
+| 已完成的 AC 数 | **34 / 34**（`REQ-001` 10 + `REQ-002` 7 + `REQ-003` 8 + `REQ-004` 9，全部有提交与测试证据） |
 | 未决问题数 | 15（2 红 / 10 黄 / 3 绿；`Q-005` 已关闭，本轮新增 `Q-021`） |
 | 已接受的 ADR 数 | **9**（ADR-0006 跨模块错误类型、ADR-0007 数据层归属、ADR-0008 跨上下文读模型、ADR-0009 分类生命周期） |
 | 限界上下文数 | 5（Ledger / Worklog / Payroll / Calendar / Insight） |
-| 工程任务数 | 12（**T-001 ~ T-011 全部完成**；T-012 待实现） |
+| 工程任务数 | 12（**T-001 ~ T-012 全部完成**） |
 | 已建工程模块数 | **11**（1 个 Kotlin JVM + 9 个 Android Library + 1 个 Application） |
 | 领域层测试数 | **25**（全绿；`T-009` 第一段新增 `SignedMoney` 6 条 + `MonthlyTotals` 5 条） |
-| Android 侧测试数 | **80**（JVM：6 条架构断言 + 74 条 Ledger 业务测试）+ **7** 条仪器化 DAO 测试（真库，经 `am instrument` 运行） |
-| 可交付产物 | `app-debug.apk`（12.02 MB，已在模拟器上启动并冒烟验证） |
+| Android 侧测试数 | **157**（JVM 全绿；其中 6 条是 Konsist 架构断言）+ **9** 条仪器化 DAO 测试（真库，经 `am instrument` 运行） |
+| 可交付产物 | `app-debug.apk`（已在模拟器上启动并冒烟验证；数据库 `version = 2`，含迁移） |
 
 ## 工程任务进度
 

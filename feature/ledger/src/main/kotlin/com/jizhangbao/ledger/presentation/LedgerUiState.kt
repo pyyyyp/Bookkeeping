@@ -53,11 +53,33 @@ internal data class LedgerUiState(
      * 而只存 id 就得再去仓储里找一遍——那会让"编辑"多一次查询，也多一处可能找不到。
      */
     val editing: LedgerEntry?,
+    /**
+     * 界面上要用到的全部分类：**预置 ∪ 自定义（含已归档）**（`REQ-004`）。
+     *
+     * 存整个清单而不是两个过滤好的列表：选择器与"显示历史条目的分类名"只差一个过滤条件，
+     * 分开存会有两份合并逻辑（"预置从哪来、顺序怎么排"这类细节会漂移）。
+     * 过滤做成派生属性（见下）。
+     */
+    val allCategories: List<Category>,
 ) {
 
-    /** 当前方向下可选的分类（预置清单已按方向过滤）。 */
+    /**
+     * 当前方向下**可选**的分类：该方向的预置 + 未归档的自定义（`REQ-004/AC-3`）。
+     *
+     * 归档的在这里被滤掉 —— 它是"现在能用的"；而**历史条目**用的是 [categoryName]，
+     * 那里**不过滤**，否则归档过的历史条目会显示成 id。
+     */
     val selectableCategories: List<Category>
-        get() = CategoryCatalog.PRESET.forDirection(direction)
+        get() = allCategories.filter { !it.archived && it.supports(direction) }
+
+    /**
+     * 把分类标识翻译成给人看的名字（`REQ-004/AC-3`）。
+     *
+     * 查不到时退回 id 本身，而不是空串或"未知分类"：
+     * 至少能看出是哪一条，也不会在界面上留一片空白让人以为是渲染坏了。
+     */
+    fun categoryName(id: CategoryId): String =
+        allCategories.firstOrNull { it.id == id }?.displayName ?: id.value
 
     val canPressSave: Boolean
         get() = !isSaving
@@ -78,6 +100,8 @@ internal data class LedgerUiState(
             deletedNotice = false,
             entriesRevision = 0,
             editing = null,
+            // 初始就用预置清单：自定义分类还没从库里读回来之前，界面也不该是空的
+            allCategories = CategoryCatalog.PRESET.all(),
         )
     }
 }

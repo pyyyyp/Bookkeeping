@@ -80,6 +80,7 @@ internal fun LedgerRoute(
         onSave = viewModel::onSave,
         onEditRequested = viewModel::onEditRequested,
         onEditCancel = viewModel::onEditCancelled,
+        onCategoriesChanged = viewModel::onCategoriesChanged,
         onDeleteRequested = viewModel::onDeleteRequested,
         onDeleteConfirmed = viewModel::onDeleteConfirmed,
         onDeleteCancelled = viewModel::onDeleteCancelled,
@@ -105,16 +106,19 @@ internal fun LedgerScreen(
     onSave: () -> Unit,
     onEditRequested: (com.jizhangbao.ledger.domain.model.LedgerEntry) -> Unit,
     onEditCancel: () -> Unit,
+    /** 分类管理界面关闭后被调用（`REQ-004`）：分类清单可能变了，要重新拉一次。 */
+    onCategoriesChanged: () -> Unit,
     onDeleteRequested: (com.jizhangbao.ledger.domain.model.LedgerEntry) -> Unit,
     onDeleteConfirmed: () -> Unit,
     onDeleteCancelled: () -> Unit,
     header: @Composable () -> Unit = {},
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
+    var showCategories by remember { mutableStateOf(false) }
     val zone = remember { ZoneId.systemDefault() }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.ledger_title)) }) },
+        topBar = { LedgerTopBar(onCategoriesClick = { showCategories = true }) },
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -150,6 +154,8 @@ internal fun LedgerScreen(
                 showDeletedNotice = state.deletedNotice,
                 onEdit = onEditRequested,
                 onDelete = onDeleteRequested,
+                // 名字由状态解析：含用户自建与已归档的分类
+                nameOf = state::categoryName,
             )
         }
     }
@@ -163,13 +169,42 @@ internal fun LedgerScreen(
         )
     }
 
-    // 二次确认：删除是物理删除且不可恢复（ADR-0005），所以这一步不是装饰
-    state.pendingDelete?.let { target ->
-        DeleteConfirmDialog(
-            onConfirm = onDeleteConfirmed,
-            onDismiss = onDeleteCancelled,
+    // 二次确认：删除是物理删除且不可恢复（ADR-0005），所以这一步不是装饰。
+    // 用 if 而不是 let：待删的那一条只在状态里存在，这里不需要它的内容
+    // （对话框刻意不显示金额，见下面的说明）
+    if (state.pendingDelete != null) {
+        DeleteConfirmDialog(onConfirm = onDeleteConfirmed, onDismiss = onDeleteCancelled)
+    }
+
+    // 分类管理：全屏对话框，不引入导航依赖（REQ-004）
+    if (showCategories) {
+        CategoryManagerDialog(
+            onDismiss = {
+                showCategories = false
+                // 关掉之后通知一次：分类可能被增/改/归档过，选择器与列表的显示名都要跟着变
+                onCategoriesChanged()
+            },
         )
     }
+}
+
+/**
+ * 顶栏：标题 + 分类管理入口。
+ *
+ * 入口放这里是因为它管的是"设置"，而不是"这一笔" ——
+ * 与表单里的控件区分开，避免它在用户的记账动线上挡路。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LedgerTopBar(onCategoriesClick: () -> Unit) {
+    TopAppBar(
+        title = { Text(stringResource(R.string.ledger_title)) },
+        actions = {
+            TextButton(onClick = onCategoriesClick) {
+                Text(stringResource(R.string.ledger_categories))
+            }
+        },
+    )
 }
 
 /**

@@ -40,4 +40,28 @@
     <string name="ledger_error_note_too_long">备注最多 200 个字</string>
     <string name="ledger_error_storage">保存失败：本机数据库出错，这笔没有记上</string>
     <string name="ledger_error_rejected">这条记录没有被接受，请检查填写内容</string>
+
+    <!-- 分类管理（REQ-004）：入口在记账页顶部 -->
+    <string name="ledger_categories">分类</string>
+    <string name="category_manager_title">分类管理</string>
+    <string name="category_manager_close">关闭</string>
+    <string name="category_new_name_label">新分类名字</string>
+    <string name="category_direction_label">用于</string>
+    <string name="category_create">新增分类</string>
+    <string name="category_custom_title">我的分类</string>
+    <string name="category_custom_empty">还没有自定义分类。在上面加一个试试。</string>
+    <string name="category_preset_title">内置分类</string>
+    <!-- 说清楚"为什么没有按钮"，而不是让按钮点了没反应（AC-7） -->
+    <string name="category_preset_readonly">内置分类不能改名或归档 —— 否则"恢复默认"就说不清该恢复成什么了。</string>
+    <string name="category_rename">改名</string>
+    <string name="category_rename_label">新名字</string>
+    <string name="category_rename_confirm">确定</string>
+    <!-- 用「归档」而不是「删除」：历史条目引用了这个分类（ADR-0009） -->
+    <string name="category_archive">归档</string>
+    <string name="category_restore">恢复</string>
+    <string name="category_archived_mark">（已归档）</string>
+    <string name="category_error_name_invalid">名字不能为空，最多 20 个字</string>
+    <string name="category_error_name_taken">已经有同名的分类了</string>
+    <string name="category_error_not_found">这个分类已经不在了</string>
+    <string name="category_error_storage">操作失败：本机数据库出错</string>
 </resources>

@@ -4,12 +4,14 @@ import com.jizhangbao.core.domain.EntryDirection
 import com.jizhangbao.core.domain.Money
 import com.jizhangbao.core.domain.Outcome
 import com.jizhangbao.ledger.application.DeleteLedgerEntryUseCase
+import com.jizhangbao.ledger.application.LoadCategoriesUseCase
 import com.jizhangbao.ledger.application.LoadRecentEntriesUseCase
 import com.jizhangbao.ledger.application.RecordLedgerEntryUseCase
 import com.jizhangbao.ledger.application.ReviseLedgerEntryUseCase
 import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.LedgerEntry
 import com.jizhangbao.ledger.domain.model.Note
+import com.jizhangbao.ledger.testing.FakeCategoryRepository
 import com.jizhangbao.ledger.testing.FakeLedgerEntryRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,6 +50,8 @@ class LedgerViewModelEditTest {
         loadEntries = LoadRecentEntriesUseCase(repository),
         deleteEntry = DeleteLedgerEntryUseCase(repository),
         reviseEntry = ReviseLedgerEntryUseCase(repository),
+        // REQ-004：分类清单来自仓储（预置 ∪ 自定义）。这里给空的 fake —— 记账/编辑路径不用它
+        loadCategories = LoadCategoriesUseCase(FakeCategoryRepository()),
         clock = clock,
     )
 

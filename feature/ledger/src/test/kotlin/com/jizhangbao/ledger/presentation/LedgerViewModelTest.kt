@@ -56,6 +56,10 @@ class LedgerViewModelTest {
         loadEntries = LoadRecentEntriesUseCase(repository),
         deleteEntry = DeleteLedgerEntryUseCase(repository),
         reviseEntry = com.jizhangbao.ledger.application.ReviseLedgerEntryUseCase(repository),
+        // REQ-004：分类清单来自仓储（预置 ∪ 自定义）。空的 fake 足够——这里不测分类管理
+        loadCategories = com.jizhangbao.ledger.application.LoadCategoriesUseCase(
+            com.jizhangbao.ledger.testing.FakeCategoryRepository(),
+        ),
         clock = clock,
     )
 

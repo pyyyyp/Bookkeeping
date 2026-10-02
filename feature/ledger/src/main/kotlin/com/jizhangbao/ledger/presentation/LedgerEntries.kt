@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.jizhangbao.ledger.R
-import com.jizhangbao.ledger.domain.model.CategoryCatalog
+import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.LedgerEntry
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -36,6 +36,13 @@ internal fun EntriesSection(
     showDeletedNotice: Boolean,
     onEdit: (LedgerEntry) -> Unit,
     onDelete: (LedgerEntry) -> Unit,
+    /**
+     * 把分类标识翻成显示名。
+     *
+     * 由状态提供（而不是这里查内置清单）：`REQ-004` 之后分类可能是用户自建的，
+     * 而且**已归档的也要能显示**（否则历史条目会显示成 id）。
+     */
+    nameOf: (CategoryId) -> String,
     /**
      * 施加在列表容器上的修饰符。
      *
@@ -76,6 +83,7 @@ internal fun EntriesSection(
                 EntryRow(
                     entry = entry,
                     zone = zone,
+                    categoryName = nameOf(entry.categoryId),
                     onEdit = { onEdit(entry) },
                     onDelete = { onDelete(entry) },
                 )
@@ -88,6 +96,7 @@ internal fun EntriesSection(
 private fun EntryRow(
     entry: LedgerEntry,
     zone: ZoneId,
+    categoryName: String,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -97,7 +106,7 @@ private fun EntryRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = stringResource(entry.direction.labelRes()) + "  " + categoryDisplayName(entry),
+            text = stringResource(entry.direction.labelRes()) + "  " + categoryName,
             style = MaterialTheme.typography.bodyLarge,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -116,6 +125,3 @@ private fun EntryRow(
     }
 }
 
-/** 分类显示名来自领域层的预置清单（它是业务内容，不是界面文案）。 */
-private fun categoryDisplayName(entry: LedgerEntry): String =
-    CategoryCatalog.PRESET.byId(entry.categoryId)?.displayName ?: entry.categoryId.value
