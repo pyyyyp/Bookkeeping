@@ -2,6 +2,7 @@ package com.jizhangbao.app.data
 
 import android.content.Context
 import androidx.room.Room
+import com.jizhangbao.ledger.data.local.CategoryDao
 import com.jizhangbao.ledger.data.local.LedgerEntryDao
 import dagger.Module
 import dagger.Provides
@@ -30,11 +31,20 @@ internal object DatabaseModule {
             context = context,
             klass = JizhangbaoDatabase::class.java,
             name = DATABASE_NAME,
-        ).build()
+        )
+            // 迁移必须显式登记（`Migrations.kt`）：不登记又不开破坏性迁移时，
+            // 旧版本用户升级会直接崩在打开数据库那一步 —— 那至少比静默清空数据好，
+            // 但也绝不该发生。
+            .addMigrations(*ALL_MIGRATIONS)
+            .build()
 
     @Provides
     fun provideLedgerEntryDao(database: JizhangbaoDatabase): LedgerEntryDao =
         database.ledgerEntryDao()
+
+    @Provides
+    fun provideCategoryDao(database: JizhangbaoDatabase): CategoryDao =
+        database.categoryDao()
 
     /**
      * 系统时钟。注入而不是各处直接 `Instant.now()`：
