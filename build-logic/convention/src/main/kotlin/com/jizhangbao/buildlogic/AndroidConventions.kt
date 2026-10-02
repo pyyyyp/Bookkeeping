@@ -35,6 +35,14 @@ internal object AndroidDefaults {
     /** 首个骨架版本。0.x 表示「还没有可用的业务功能」。 */
     const val VERSION_CODE = 1
     const val VERSION_NAME = "0.1.0"
+
+    /**
+     * 仪器化测试运行器。
+     *
+     * ⚠️ 这里只是写进 manifest 的**字符串**，不引入依赖 ——
+     * 真正需要它的模块要自己加 `androidTestImplementation(libs.androidx.test.runner)`。
+     */
+    const val INSTRUMENTATION_RUNNER = "androidx.test.runner.AndroidJUnitRunner"
 }
 
 /**
@@ -57,6 +65,11 @@ internal fun CommonExtension.configureJizhangbaoAndroid() {
 
     // minSdk 在 BaseFlavor 上（DefaultConfig 继承自它）
     defaultConfig.minSdk = AndroidDefaults.MIN_SDK
+
+    // 仪器化测试的运行器（T-010 起有 androidTest 源集了）。
+    // 只在这里声明一次，所有 Android 模块共用；没有 androidTest 的模块不受影响。
+    // 依赖本身由需要写仪器化测试的模块用 androidTestImplementation 引入。
+    defaultConfig.testInstrumentationRunner = AndroidDefaults.INSTRUMENTATION_RUNNER
 
     // Java 语言级别。Kotlin 侧的 jvmTarget 由 AGP 内置 Kotlin 与其对齐。
     compileOptions.sourceCompatibility = JavaVersion.VERSION_21
