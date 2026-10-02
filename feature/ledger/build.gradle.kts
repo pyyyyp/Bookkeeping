@@ -36,6 +36,9 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit4)
+    // ViewModel 测试需要 Dispatchers.setMain：viewModelScope 默认跑在 Dispatchers.Main 上，
+    // 而单元测试里没有主线程。版本与生产解析到的 coroutines-core 对齐（见 libs.versions.toml）
+    testImplementation(libs.kotlinx.coroutines.test)
 }
 
 // Ledger 账本（核心域）：账目条目、分类。

@@ -42,13 +42,18 @@ detekt = "2.0.0-alpha.6"
 
 # ── 测试 ──
 junit4 = "4.13.2"
+# 协程只用于**单元测试**（T-010：给 ViewModel 写自动化测试，需要 Dispatchers.setMain）。
+# ⚠️ 版本不是"查最新"来的，而是**从依赖图核实**出来的：
+#      .\gradlew.bat :feature:ledger:dependencies --configuration debugRuntimeClasspath
+#    生产侧解析到的是 1.9.0（由 Room / Compose 传递带入），**不是**目录里早先记的 1.11.0。
+#    测试若跑在与线上不同的协程版本上，"测试通过"就不能代表线上行为——所以这里跟解析值对齐。
+coroutines = "1.9.0"
 
 # ── 已核实但本轮未使用（ADR-0001 已选型，等有真实消费者时再加 library 条目）──
 # 之所以先记录版本：避免日后凭记忆填错。见 tech-baseline.md。
 androidxNavigation = "2.10.2"             # 出现第二个页面时引入
 androidxDatastore = "1.2.1"               # 有了第一项需要持久化的用户偏好时引入
-androidxHilt = "1.4.0"                    # @HiltViewModel + hilt-navigation-compose
-coroutines = "1.11.0"
+androidxHilt = "1.4.0"                    # ✅ 已用（T-007 的 hilt-navigation-compose）
 kotlinxSerialization = "1.11.0"
 retrofit = "3.0.0"                        # v1 无后端（先用 Mock），有真实契约时引入
 okhttp = "5.5.0"
@@ -62,6 +67,7 @@ truth = "1.4.5"
 # Kotlin Gradle 插件并未应用，该 DSL helper 不存在。必须写全坐标。
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 junit4 = { module = "junit:junit", version.ref = "junit4" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 
 # ── AndroidX 基础 ──
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
