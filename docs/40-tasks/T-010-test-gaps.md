@@ -1,6 +1,6 @@
 # T-010 补界面层与数据层的自动化测试
 
-- 状态: 进行中（界面层已完成；数据层待做）
+- 状态: **已完成**（界面层 13 条 + 数据层 7 条，都有反向验证或真库证据）
 - 需求: `REQ-001`（补验证，不新增功能）
 - 上下文: Ledger
 - 影响聚合: 无（只加测试）
@@ -31,31 +31,53 @@
       删除的请求-取消-确认-失败
 - [x] **反向验证**：故意让 ViewModel 在存储失败时清空金额 → **恰好那一条**测试失败
       （其余 12 条通过）→ 还原
-- [ ] 数据层：`ledger_entry` 的 DAO 测试（见下方计划）
+- [x] 数据层：`LedgerEntryDaoTest`（7 条，**真 SQLite**）——排序（含第二排序键）、`LIMIT`、
+      删除影响行数 1 / 0、只删目标行。测试专用 `@Database` 住 `androidTest`（生产那个在 `:app`）
+- [x] 新依赖的版本**核实过**（Google Maven 的 `maven-metadata.xml`）：
+      `androidx.test.ext:junit` **1.3.0**、`androidx.test:runner` **1.7.0**
 
-## 数据层测试的计划（尚未做，别当成已完成）
+## 数据层测试：路线与实测结论
 
-单元测试用内存 fake，**测不到 SQL 本身**。两条可选路线，都需要**先核实版本**（不猜）：
+**选了路线 A（仪器化测试）**，因为本机有可用模拟器，且不引入"测试专用运行时"这层间接。
 
-| 路线 | 能验证什么 | 代价 / 风险 |
-|---|---|---|
-| **A. 仪器化测试**（`androidTest` + `androidx.test` + Room 内存库） | 真 SQL：`ORDER BY` 次序、`LIMIT`、`DELETE` 影响行数、聚合 | 需要 `androidx.test` 系列依赖（**版本要核实**）；**CI 跑不了**（runner 上没有模拟器），只能本机 `connectedDebugAndroidTest` |
-| B. Robolectric（JVM 上跑） | 同上 | 需要 Robolectric + `androidx.test:core`；⚠️ 两个已知风险：compileSdk 37 太新（Robolectric 可能要 `@Config(sdk = 34)` 降级）、Robolectric 自己下载 android-all jar **不读 Gradle 的代理设置**（本机必须配系统代理） |
+⚠️ **但 `./gradlew connectedDebugAndroidTest` 在本机（MuMu / Android 12）跑不通**：
+报 `There were failing tests`，而结果 XML 里 `tests=` 是空的、HTML 报告里没有任何失败详情。
+查下来的真相是 **测试 APK 根本没被安装**（`adb shell pm list packages` 里只有 `com.jizhangbao.app`）——
+不是测试失败，是没跑起来。手动安装则完全正常：
 
-**倾向 A**：本机有可用的模拟器，且不引入"测试专用运行时"这层间接。
-但必须接受并写明「CI 不跑它」——那本身是一个新的缺口，需要单独决定是否加 CI 的模拟器作业。
+```powershell
+# 1) 先构建出测试 APK
+.\gradlew.bat :feature:ledger:assembleDebugAndroidTest
+# 2) 手动安装（-t 是必须的：测试 APK 是 test-only 包）
+adb install -r -t feature\ledger\build\outputs\apk\androidTest\debug\ledger-debug-androidTest.apk
+# 3) 直接跑 instrumentation（结果打印到 stdout，不经过 Gradle 的上报层）
+adb shell am instrument -w -e class com.jizhangbao.ledger.data.local.LedgerEntryDaoTest `
+    com.jizhangbao.ledger.test/androidx.test.runner.AndroidJUnitRunner
+# → com.jizhangbao.ledger.data.local.LedgerEntryDaoTest:.......
+#   OK (7 tests)
+```
+
+**另一条实测结论**：方法名**必须是 ASCII**。用中文方法名时，AGP 的上报层会在
+`CompositeTestExecutionListener.executionFinished` 抛 `ArrayIndexOutOfBoundsException:
+Index 1 out of bounds for length 0`，同样是"空结果 + 退出码 1"。
+（已核实 `debugAndroidTestRuntimeClasspath` 上只有 JUnit **4.13.2**，没有 JUnit 5。）
+
+**因此 CI 里没有这一步**：runner 上没有模拟器；即便有，也要先解决上面这个安装问题。
+这是**已知缺口**，不是"忘了加"。
 
 ## 验收
 
-- [x] `:feature:ledger:testDebugUnitTest` 全绿：**74 个测试**
+- [x] `:feature:ledger:testDebugUnitTest` 全绿：**74 个 Ledger 测试**（全仓 80 = 74 + 6 架构断言）
 - [x] 反向验证：注入违规时对应测试真的失败
-- [ ] 数据层测试跑通（路线 A 或 B 定案后）
+- [x] 数据层：`OK (7 tests)`（真库，经 `adb shell am instrument` 运行，见上方命令）
 
 ## 完成情况
 
 - 提交: 见 `90-trace/traceability.md` 的 T-010 行
-- 未决（**需要用户裁决**）：
-  1. 数据层测试走 A 还是 B（**都要新增依赖，按规则必须先问**）
+- 证据：JVM 侧 80 个测试 0 失败；仪器化侧 7 个测试 `OK`；全仓门禁（detekt / lint /
+  testDebugUnitTest / assembleDebug / 两条架构校验）全绿
 - 已自行决定并记录：分支类型用 `refactor/`（规则里没有 `test/`，见文件头的说明）
-- 备注: 测试只加不算数，**必须反向验证过**才算证据（本卡做了）。没有反向验证的测试，
-  与没有测试的区别只是心理安慰
+- 未决（**需要用户裁决**）：`connectedDebugAndroidTest` 装不上测试 APK 要不要深挖
+  （可能是 MuMu 的 test-only 安装限制），以及要不要给 CI 加模拟器作业
+- 备注: 测试只加不算数，**必须反向验证过**才算证据（本卡两处都做了）。
+  没有反向验证的测试，与没有测试的区别只是心理安慰

@@ -39,6 +39,15 @@ dependencies {
     // ViewModel 测试需要 Dispatchers.setMain：viewModelScope 默认跑在 Dispatchers.Main 上，
     // 而单元测试里没有主线程。版本与生产解析到的 coroutines-core 对齐（见 libs.versions.toml）
     testImplementation(libs.kotlinx.coroutines.test)
+
+    // 仪器化测试（T-010 数据层）：DAO 的 SQL 只有真 SQLite 能验证。
+    // ⚠️ CI 跑不了它（runner 上没有模拟器），只能本机 `connectedDebugAndroidTest`——
+    // 这是**已知且已记录**的缺口，不是"应该能跑"。
+    androidTestImplementation(libs.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    // androidTest 源集里那个测试专用的 @Database 也要 Room 生成实现
+    kspAndroidTest(libs.androidx.room.compiler)
 }
 
 // Ledger 账本（核心域）：账目条目、分类。
