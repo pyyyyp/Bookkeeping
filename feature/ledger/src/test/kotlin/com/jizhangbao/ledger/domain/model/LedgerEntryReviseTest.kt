@@ -73,7 +73,9 @@ class LedgerEntryReviseTest {
         ) as Outcome.Ok).value
 
         assertEquals(id, revised.id)
-        assertEquals(original, revised) // 相等性按标识判断，所以仍相等
+        // 相等性按**全部字段**：改过之后的内容与原来不同，所以它们**不**相等
+        // （真机上踩过：只按标识相等会让 StateFlow 丢掉刷新结果，见 equals 的 KDoc）
+        assertNotEquals(original, revised)
     }
 
     @Test

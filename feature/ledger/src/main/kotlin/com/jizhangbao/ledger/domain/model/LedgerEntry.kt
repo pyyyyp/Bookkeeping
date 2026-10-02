@@ -18,7 +18,8 @@ import java.time.Instant
  * 那时需要重新裁决聚合边界并新增 ADR（见 `ADR-0005`）。
  *
  * ⚠️ 刻意**不是** `data class`：`copy()` 会绕过 `init` 里的不变式。
- * 相等性按**标识**判断 —— 实体的语义是「同一个标识就是同一条记录」。
+ * 相等性按**全部字段**判断（理由见下面的 `equals`：
+ * 不可变对象若只按标识相等，"改过的那条"会等于"改之前的它"，状态差分就会丢更新）。
  *
  * 见 `docs/20-domain/ledger-model.md`。
  */
@@ -37,10 +38,45 @@ class LedgerEntry private constructor(
         require(amount > Money.ZERO) { "INV-1：条目金额必须大于 0，实际为 $amount" }
     }
 
+    /**
+     * 按**全部字段**相等，而不是只按标识。
+     *
+     * ## 为什么不是"实体 = 标识相等"
+     *
+     * 教科书说实体按标识判断相等，那在**可变**实体上是对的：
+     * 一个对象被改了内容，它仍是同一条记录。但本类**不可变**（改内容会返回新实例），
+     * 于是"只比标识"会得出一个危险结论：**改过的那条与改之前的它相等**。
+     *
+     * 这个结论在真机上咬过一次（`T-011` 冒烟）：`MutableStateFlow` 认为
+     * 「同 id 的列表」与刷新后的列表相等 → **丢弃刷新结果** → 界面停在旧值上，
+     * 而数据库其实已经改了。合计用的是另一个字段（修订号），所以它更新了、
+     * 列表没更新——同一个屏幕上一半新一半旧。
+     *
+     * 不可变对象按值相等，是让"内容变了"处处可见的唯一可靠做法。
+     * 需要"是不是同一条记录"时，比较 [id]（那是显式的、不会被误用）。
+     */
     override fun equals(other: Any?): Boolean =
-        this === other || (other is LedgerEntry && other.id == id)
+        this === other || (
+            other is LedgerEntry &&
+                other.id == id &&
+                other.direction == direction &&
+                other.amount == amount &&
+                other.categoryId == categoryId &&
+                other.occurredAt == occurredAt &&
+                other.bookedAt == bookedAt &&
+                other.note == note
+            )
 
-    override fun hashCode(): Int = id.hashCode()
+    override fun hashCode(): Int {
+        var result = id.hashCode()
+        result = 31 * result + direction.hashCode()
+        result = 31 * result + amount.hashCode()
+        result = 31 * result + categoryId.hashCode()
+        result = 31 * result + occurredAt.hashCode()
+        result = 31 * result + bookedAt.hashCode()
+        result = 31 * result + (note?.hashCode() ?: 0)
+        return result
+    }
 
     override fun toString(): String =
         "LedgerEntry(${id.value}, $direction, $amount, ${categoryId.value}, " +

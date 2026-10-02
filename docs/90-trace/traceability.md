@@ -27,14 +27,14 @@
 | REQ-002 | AC-5 删一笔后合计立即回退 | Insight | 无聚合（读模型） | T-009 | 见本轮提交 | `LedgerViewModelTest`（删除后修订号再 +1、失败时不加）+ `T-008` 的删除真机证据。⚠️ **本卡未单独在真机上验证「删除后合计回退」** | ✅ |
 | REQ-002 | AC-6 可翻看上一个月并回到当月 | Insight | 无聚合（读模型） | T-009 | 见本轮提交 | 冒烟 `t009-3`（翻到 2026 年 9 月；当月时「下一月」禁用）；`LoadMonthlyTotalsUseCaseTest`（时区/跨年/闰年） | ✅ |
 | REQ-002 | AC-7 按发生时间归属月份（补记算在发生的那个月） | Insight | 无聚合（读模型） | T-009 | 见本轮提交 | `LedgerTotalsReaderImplTest`（补记不计入录入月）+ 真库 DAO 测试（方向/半开区间）。⚠️ **真机未构造跨月补记场景** | ✅ |
-| REQ-003 | AC-1 改金额与分类后替换原条目 | Ledger | `LedgerEntry` | T-011 | - | - | ⏳ 待实现 |
-| REQ-003 | AC-2 可以修改发生时间 | Ledger | `LedgerEntry` | T-011 | - | - | ⏳ 待实现 |
-| REQ-003 | AC-3 编辑时领域规则照旧生效 | Ledger | `LedgerEntry` | T-011 | - | - | ⏳ 待实现 |
-| REQ-003 | AC-4 编辑不改变录入时间与条目身份 | Ledger | `LedgerEntry` | T-011 | - | - | ⏳ 待实现 |
-| REQ-003 | AC-5 编辑后本月合计立即更新 | Ledger | `LedgerEntry` | T-011 | - | - | ⏳ 待实现 |
-| REQ-003 | AC-6 取消编辑不改变任何东西 | Ledger | `LedgerEntry` | T-011 | - | - | ⏳ 待实现 |
-| REQ-003 | AC-7 编辑后重启仍在 | Ledger | `LedgerEntry` | T-011 | - | - | ⏳ 待实现 |
-| REQ-003 | AC-8 编辑已不存在的条目时给出明确结果 | Ledger | `LedgerEntry` | T-011 | - | - | ⏳ 待实现 |
+| REQ-003 | AC-1 改金额与分类后替换原条目 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | 真机冒烟：点编辑 → 金额框回填 `34213.00` → 改成 40000.00 → 保存后**数据库旧行被替换**（`3421300` 消失、只剩 `4000000`，行数不变），列表**当场**跟着变；`ReviseLedgerEntryUseCaseTest` + `LedgerEntryRepositoryUpdateTest` | ✅ |
+| REQ-003 | AC-2 可以修改发生时间 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | `LedgerEntryReviseTest`（可改 occurredAt）+ `LedgerViewModelEditTest`（改后 `bookedAt` 不变）。⚠️ **真机未单独构造跨月改期** | ✅ |
+| REQ-003 | AC-3 编辑时领域规则照旧生效 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | `LedgerEntryReviseTest`（金额 0 被拒 / 与 `record` 给同样的 `CategoryRequired`）+ `LedgerViewModelEditTest`（非法金额时**仓储一次都没被调用**） | ✅ |
+| REQ-003 | AC-4 编辑不改变录入时间与条目身份 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | `LedgerEntryReviseTest`（`id` 与 `bookedAt` 不变）+ 用例测试 | ✅ |
+| REQ-003 | AC-5 编辑后本月合计立即更新 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | 真机冒烟：改成 40000.00 后合计**当场**变 `¥40037.50`（另一条 12.50→20.00 后变 `¥40045.00`）；`LedgerViewModelEditTest`（修订号递增） | ✅ |
+| REQ-003 | AC-6 取消编辑不改变任何东西 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | 真机冒烟：改成 999.00 后取消 → 数据库 `4 / 4804500` 前后一致、列表仍 `¥40000.00`；`LedgerViewModelEditTest`（取消时 `updateCallCount == 0`）。⚠️ 自动化点击没点中「取消编辑」按钮，**"退出编辑态"这个视觉结果未验到**（数据侧的保证已验证） | ✅ |
+| REQ-003 | AC-7 编辑后重启仍在 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | 真机冒烟：`am force-stop` 后重启，列表仍是 `¥40000.00`；数据库直查一致 | ✅ |
+| REQ-003 | AC-8 编辑已不存在的条目时给出明确结果 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | `LedgerEntryRepositoryUpdateTest`（0 行 → `EntryNotFound` 且**不插入**）+ `ReviseLedgerEntryUseCaseTest` + `LedgerViewModelEditTest`；**反向验证**：把该分支改成无条件成功 → 恰好那一条失败 | ✅ |
 
 **状态图例**：✅ 已完成 / 🚧 进行中 / ⏳ 待开始 / ❌ 已废弃
 
@@ -91,7 +91,7 @@
 | 指标 | 数值 |
 |---|---|
 | 需求总数 | **3**（`REQ-001` 记账；`REQ-002` 本月合计；`REQ-003` 编辑条目） |
-| 已完成的 AC 数 | **17 / 25**（`REQ-001` 10 条与 `REQ-002` 7 条全部 ✅；`REQ-003` 的 8 条待 `T-011`） |
+| 已完成的 AC 数 | **25 / 25**（`REQ-001` 10 条 + `REQ-002` 7 条 + `REQ-003` 8 条全部有提交与测试证据） |
 | 未决问题数 | 15（2 红 / 10 黄 / 3 绿；`Q-005` 已关闭，本轮新增 `Q-021`） |
 | 已接受的 ADR 数 | **8**（ADR-0006 跨模块错误类型、ADR-0007 数据层归属、ADR-0008 跨上下文读模型的数据通路） |
 | 限界上下文数 | 5（Ledger / Worklog / Payroll / Calendar / Insight） |
@@ -117,7 +117,7 @@
 | T-008 | 账本列表与删除条目 | ✅ **已完成**（含数据库旁证） | 见本轮提交 |
 | T-009 | 本月收支合计（Insight v0，`REQ-002`） | ⏳ 待开始（阶段 B/C 已完成并合入 develop） | — |
 | T-010 | 补界面层与数据层的自动化测试（工程任务） | ✅ **已完成**（界面层 13 条 + 数据层 7 条；见卡的"路线与实测结论"） | 见本轮提交 |
-| T-011 | 编辑已保存的条目（`REQ-003`） | ⏳ 待开始（阶段 B/C 已完成） | — |
+| T-011 | 编辑已保存的条目（`REQ-003`） | ✅ **已完成**（含真机冒烟；**发现并修掉两个真 bug**：列表够不到、编辑后状态丢更新） | 见本轮提交 |
 
 **T-001 验收证据**：`:core:domain:build` BUILD SUCCESSFUL；
 14 个测试 0 失败；`compileClasspath` 中 Android 条目数为 **0**（R3 在依赖层面得证）。
