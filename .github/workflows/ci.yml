@@ -107,14 +107,24 @@ jobs:
         # compileSdk 37 由 Compose BOM 2026.09 的下限决定（见 ADR-0003 决策 3），
         # 所以 android-37.0 必须显式安装，不能指望镜像里恰好有。
         # 上一行对 $GITHUB_PATH 的追加要到**后续步骤**才生效，所以这里必须分成两步。
+        #
+        # 两条踩过的坑（都由 check-run 注解定位，见文件头）：
+        # 1. **不要 `set -e`**：它只给一个 exit 1，不告诉你断在哪条命令。
+        #    这里每条关键命令显式 `|| { echo "::error::..."; exit 1; }`，并用 ::warning:: 发面包屑。
+        # 2. `yes | sdkmanager --licenses` 在 `pipefail` 下会因 yes 收到 SIGPIPE 而整体判失败
+        #    —— 所以显式容忍它；真正的门是下面的 --install。
         run: |
-          set -euo pipefail
-          sdkmanager --version
-          yes | sdkmanager --licenses > /dev/null
-          sdkmanager --install "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
+          set -uo pipefail
+          echo "::warning::安装开始"
+          sdkmanager --version || { echo "::error::sdkmanager --version 失败"; exit 1; }
+          echo "::warning::版本检查通过"
+          (yes | sdkmanager --licenses > /dev/null) \
+            || echo "::warning::licenses 返回非零（可能是许可早已接受）"
+          echo "::warning::licenses 结束"
+          sdkmanager --install "platform-tools" "platforms;android-37.0" "build-tools;37.0.0" \
+            || { echo "::error::安装 android-37.0 / build-tools 失败"; exit 1; }
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/android-sdk}}"
-          echo "--- 已安装的平台 ---"
-          ls "$SDK/platforms"
+          echo "::warning::platforms = $(ls "$SDK/platforms" | tr '\n' ' ')"
 
       - name: 确保 gradlew 可执行
         # 本工程在 Windows 上开发，Git 里的执行位随时可能被重新加回文件时丢掉
