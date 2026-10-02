@@ -66,6 +66,12 @@ internal class LedgerViewModel @Inject constructor(
      */
     fun onCategoriesChanged() {
         refreshCategories()
+        // 修订号也 +1：分类名是**读模型**（占比区）要显示的东西，而那里的名字由端口在查询时解析。
+        // 不这么做，改完名回到记账页会出现"列表显示新名字、占比区还挂着旧名字"的同屏矛盾
+        // —— `T-013` 的真机冒烟就是这么发现的（改名后占比区仍是旧名字）。
+        // 分类清单属于账本数据的一部分，所以让它与记账/编辑/删除走同一条通知通路是对的：
+        // Ledger 仍然不认识 Insight，是组合根看到"账本变了"之后去通知它。
+        _uiState.update { it.copy(entriesRevision = it.entriesRevision + 1) }
     }
 
     fun onAmountChange(text: String) {

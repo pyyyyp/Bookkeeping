@@ -74,11 +74,12 @@ class LedgerEntryDaoTest {
         bookedAt: Long = occurredAt,
         amountCents: Long = 1250,
         direction: String = "Expense",
+        categoryId: String = "food",
     ) = LedgerEntryEntity(
         id = id,
         direction = direction,
         amountCents = amountCents,
-        categoryId = "food",
+        categoryId = categoryId,
         occurredAtEpochMilli = occurredAt,
         bookedAtEpochMilli = bookedAt,
         note = null,
@@ -182,5 +183,74 @@ class LedgerEntryDaoTest {
         val sum = dao.sumAmountCents(direction = "Expense", fromEpochMilli = 1_000, toEpochMilli = 2_000)
 
         assertEquals(0, sum)
+    }
+
+    /** 按分类分组求和（`REQ-005` 分类占比用的那条 `GROUP BY`） */
+    @Test
+    fun sum_by_category_groups_and_orders_by_amount_desc() = runBlocking {
+        dao.insert(entity(id = "a1", occurredAt = 1_500, amountCents = 100, categoryId = "food"))
+        dao.insert(entity(id = "a2", occurredAt = 1_600, amountCents = 200, categoryId = "food"))
+        dao.insert(entity(id = "b1", occurredAt = 1_700, amountCents = 900, categoryId = "custom-pet"))
+
+        val rows = dao.sumByCategory(direction = "Expense", fromEpochMilli = 1_000, toEpochMilli = 2_000)
+
+        // 同一分类被合并成一行；金额降序（排序在模型里也会做，这里确认 SQL 给的结果也能用）
+        assertEquals(listOf("custom-pet" to 900L, "food" to 300L), rows.map { it.categoryId to it.amountCents })
+    }
+
+    /**
+     * 分组求和同样只算匹配的方向与半开区间。
+     *
+     * ⚠️ 这条与 `REQ-005/BR-5` 直接相关：占比与合计必须口径一致，
+     * 而两者的 SQL 是两个独立的查询 —— 各写一遍就可能各错一处。
+     */
+    @Test
+    fun sum_by_category_respects_direction_and_half_open_range() = runBlocking {
+        dao.insert(entity(id = "inRange", occurredAt = 1_500, amountCents = 100))
+        dao.insert(entity(id = "income", occurredAt = 1_500, amountCents = 9_999, direction = "Income"))
+        dao.insert(entity(id = "beforeFrom", occurredAt = 999, amountCents = 9_999))
+        dao.insert(entity(id = "atTo", occurredAt = 2_000, amountCents = 9_999))
+
+        val rows = dao.sumByCategory(direction = "Expense", fromEpochMilli = 1_000, toEpochMilli = 2_000)
+
+        assertEquals(listOf("food" to 100L), rows.map { it.categoryId to it.amountCents })
+    }
+
+    /** 没有支出时返回空清单，而不是一行 0（`REQ-005/BR-6`：空是空，不是零行） */
+    @Test
+    fun sum_by_category_of_empty_range_is_empty() = runBlocking {
+        dao.insert(entity(id = "outside", occurredAt = 5_000, amountCents = 100))
+
+        val rows = dao.sumByCategory(direction = "Expense", fromEpochMilli = 1_000, toEpochMilli = 2_000)
+
+        assertEquals(0, rows.size)
+    }
+
+    /**
+     * `@Update` 替换存在的行，返回受影响行数 1（`REQ-003`）。
+     *
+     * 这条 SQL 由 Room 从实体生成，所以真正要验的是**影响行数**与"整行被换掉"。
+     */
+    @Test
+    fun update_existing_row_returns_one_and_replaces_content() = runBlocking {
+        dao.insert(entity(id = "a", occurredAt = 1_000, amountCents = 1250, categoryId = "food"))
+
+        val changed = entity(id = "a", occurredAt = 1_000, amountCents = 2000, categoryId = "transport")
+        val affected = dao.update(changed)
+
+        assertEquals(1, affected)
+        val rows = dao.recent(limit = 10)
+        assertEquals(1, rows.size) // 替换而不是新增
+        assertEquals(2000L, rows.single().amountCents)
+        assertEquals("transport", rows.single().categoryId)
+    }
+
+    /** `@Update` 不存在的行返回 0 —— 仓储靠这个值返回 EntryNotFound，而不是退化成插入 */
+    @Test
+    fun update_missing_row_returns_zero_and_inserts_nothing() = runBlocking {
+        val affected = dao.update(entity(id = "nope", occurredAt = 1_000))
+
+        assertEquals(0, affected)
+        assertEquals(0, dao.recent(limit = 10).size)
     }
 }
