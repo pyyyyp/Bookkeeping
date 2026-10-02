@@ -1,23 +1,10 @@
 plugins {
-    // ⚠️ AGP 9.0+ 内置 Kotlin 支持，**不再需要** 'org.jetbrains.kotlin.android' 插件。
-    // 若加上它，构建会直接失败：
-    //   "The 'org.jetbrains.kotlin.android' plugin is no longer required for Kotlin
-    //    support since AGP 9.0."
-    // 这是 AGP 8 → 9 的破坏性变更之一，AGP 8 时代的模板不能照抄。
-    // 见 https://kotl.in/gradle/agp-built-in-kotlin
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.jizhangbao.android.library)
 }
 
 android {
     namespace = "com.jizhangbao.core.common"
-    compileSdk = 36
-
-    defaultConfig {
-        minSdk = 26
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
-    }
 }
+
+// 说明：这里曾写死 compileSdk / minSdk / compileOptions，现已收敛到
+// build-logic 的 jizhangbao.android.library 约定插件 —— 全工程一份配置。

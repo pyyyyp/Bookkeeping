@@ -1,6 +1,11 @@
 rootProject.name = "jizhangbao"
 
 pluginManagement {
+    // 约定插件所在的可独立构建（included build）。
+    // 它让「新增一个上下文」变成「一行 include + 一个 3 行的 build.gradle.kts」，
+    // 降低架构遵守成本本身就是一种架构保障（ADR-0001 决策 7）。
+    includeBuild("build-logic")
+
     repositories {
         google()
         mavenCentral()
@@ -22,13 +27,24 @@ dependencyResolutionManagement {
 // 新增上下文时同步更新：本文件 + context-map.md + module-graph.md + 新增 ADR
 // ─────────────────────────────────────────────────────────────
 
-// 共享内核：纯 Kotlin JVM，无 Android 类路径 —— R3 的强制手段（ADR-0001 决策 4）
+// 共享内核：纯 Kotlin JVM，无 Android 类路径 —— R3 的强制手段（ADR-0001 决策 4）。
+// ⚠️ 它不是 Android Library，因此**不使用** build-logic 的 Android 约定插件。
 include(":core:domain")
 
 // Android 基础设施
 include(":core:common")
+include(":core:ui")
+include(":core:data")
+include(":core:testing")
 
-// 其余模块待 T-002 逐步加入（先验证 AGP 9.4.0 可用性，再批量创建）：
-//   :core:ui  :core:data  :core:testing  :app
-//   :feature:ledger  :feature:worklog  :feature:payroll
-//   :feature:calendar  :feature:insight
+// 应用宿主：唯一可同时依赖多个 feature 的模块（R8）
+include(":app")
+
+// 限界上下文（core domain）
+include(":feature:ledger")
+include(":feature:worklog")
+include(":feature:payroll")
+
+// 限界上下文（supporting domain）
+include(":feature:calendar")
+include(":feature:insight")
