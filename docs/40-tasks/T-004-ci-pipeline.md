@@ -14,13 +14,18 @@
 
 ## 变更清单
 
-- [ ] `.github/workflows/ci.yml`：Lint → 架构规则 → 单测 → 构建 → 追溯校验
+- [ ] `.github/workflows/ci.yml`：detekt → Lint → 架构规则 → 单测 → 构建 → 追溯校验
 - [ ] `scripts/verify-traceability.sh`（或 `.ps1`）：
   - 矩阵中引用的每个 `REQ-xxx` / `T-xxx` / `ADR-xxxx` 都存在对应文件
   - `docs/10-requirements/` 中每个 `AC-n` 都在矩阵里出现
   - 标记为 ✅ 的行必须有非空的「提交」与「测试」列
 - [ ] `CONTRIBUTING.md`：说明本地如何跑同一组门禁
 - [ ] 在 `AGENTS.md` 第 6 节核对门禁命令与 CI 一致
+
+> **注（T-006 之后）**：`detekt` 现已可用（`2.0.0-alpha.6`，见 `ADR-0004` 决策 4 与 T-006），
+> 因此 CI 的第一道门禁就是它。阶段 E 的完整门禁现在是：
+> `./gradlew detekt lintDebug testDebugUnitTest assembleDebug`
+> 外加 `verifyDomainPurity checkModuleDependencies`（已由 `build` 自动触发）。
 
 ## 验收
 

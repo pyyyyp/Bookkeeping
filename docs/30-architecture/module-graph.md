@@ -109,14 +109,17 @@
 ```bash
 ./gradlew verifyDomainPurity checkModuleDependencies   # 两条零依赖校验任务（R2/R3/R7/R8）
 ./gradlew :core:testing:testDebugUnitTest              # Konsist 架构断言（R2/R5/R6/R8/R10）
-./gradlew build                                        # 上面全部：两个任务已接入每个模块的 check
+./gradlew detekt                                       # 静态分析：代码味道与风格（T-006）
+./gradlew build                                        # 上面全部：都已接入各模块的 check
 ```
 
-> 三条命令都由 `./gradlew build` 自动触发，不必单独记得。
+> 四条命令都由 `./gradlew build` 自动触发，不必单独记得。
 > **注意**：`:core:testing:testDebugUnitTest` 会被 Gradle 的 up-to-date 检查影响——
 > 因为它扫描的是**别的模块**的源码，所以 `core/testing/build.gradle.kts` 里
 > 显式把这些源码声明成了该测试任务的输入。删掉那段会**静默**让架构断言失效。
 > 详见 `ADR-0004` 决策 3。
 >
-> `./gradlew detekt` **目前不可用**（AGP 9 内置 Kotlin 下没有可用的 detekt 版本，
-> 见 `ADR-0004` 决策 4 与 `tech-baseline.md`），这是已知缺口，不是遗漏。
+> **detekt 用 light 模式**（不启用类型解析）：AGP 9 内置 Kotlin 下类型解析看不到生成类
+> （`BuildConfig` / `R` / KSP 产物，上游 #9402），启用会误报。
+> 配置在 `config/detekt/detekt.yml`，**偏离默认规则必须写明理由**
+> （目前只有 1 条：Compose 的 `@Composable` 函数必须 PascalCase）。
