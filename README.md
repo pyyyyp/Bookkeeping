@@ -1,0 +1,124 @@
+# 记账宝
+
+面向**按工时计酬者**的个人记账 App。
+
+普通记账 App 假设你有固定月薪，只回答「我花了多少」；记账宝同时回答「**我挣了多少**」，
+并把「工时 → 工资 → 每日收入」这条链路自动化。
+
+- 平台：Android（`minSdk 26` / `compileSdk 37`），应用 ID `com.jizhangbao.app`
+- **离线优先**：本机数据库是唯一事实源，**无后端、无网络上传**（见 [PRIVACY.md](PRIVACY.md)）
+- 单人开发、自用侧载（不上架应用商店）
+
+---
+
+## 当前状态（请如实看待）
+
+**这是工程骨架阶段，业务功能尚未实现。**
+
+| 已经有的 | 还没有的 |
+|---|---|
+| 11 个 Gradle 模块 + `build-logic` 约定插件 | 任何真实业务界面 |
+| 可构建、可安装的 debug APK（约 11.7 MB） | 账本 / 工时 / 薪资 / 日历 / 统计的领域模型与用例 |
+| 提交前门禁：detekt、Android Lint、单元测试、**架构规则机器强制** | 数据库表结构（`:core:data` 刻意为空，等真实聚合倒推） |
+| GitHub Actions CI + 追溯矩阵校验 | 通知监听、地理围栏 |
+
+界面目前只有占位首页：
+
+![当前占位首页](docs/images/current-home.png)
+
+> **为什么还没有业务功能**：领域模型必须由澄清后的需求倒推，而若干关键业务规则
+> （例如「缺勤与法定节假日是否带薪」）尚未定案。宁可先停住，也不猜着写进代码——
+> 未决问题清单见 [docs/20-domain/open-questions.md](docs/20-domain/open-questions.md)。
+
+---
+
+## 构建
+
+| 前置条件 | 版本 / 说明 |
+|---|---|
+| JDK | **21** |
+| Android SDK | 需含 `platforms;android-37.0`、`build-tools;37.0.0`、`platform-tools` |
+| Gradle | **不需要单独安装**——用仓库自带的 Wrapper（`gradlew`） |
+
+```bash
+git clone https://github.com/pythonyunpeng-maker/Bookkeeping.git
+cd Bookkeeping
+
+# local.properties 不入库，需自建（Windows 下用正斜杠更稳妥）
+#   sdk.dir=<你的 Android SDK 路径>
+
+./gradlew assembleDebug
+# 产物：app/build/outputs/apk/debug/app-debug.apk
+```
+
+装 SDK 组件、Windows 上的注意事项、以及本地怎么跑与 CI 相同的门禁，
+见 [CONTRIBUTING.md](CONTRIBUTING.md)。构建手册（含踩过的坑）见
+[docs/60-runbooks/build.md](docs/60-runbooks/build.md)。
+
+---
+
+## 项目结构
+
+```
+app/                  应用宿主：唯一可同时依赖多个 feature 的模块，不含业务规则
+core/domain/          共享内核（纯 Kotlin JVM 模块，无 Android 类路径）
+core/common/          日志 / 时间 / 调度器等基础设施
+core/ui/              Compose 设计系统
+core/data/            数据层基础设施（Room / KSP 已装配）
+core/testing/         测试基础设施（含架构断言）
+feature/ledger/       账本（核心域）
+feature/worklog/      工时（核心域）
+feature/payroll/      薪资（核心域）
+feature/calendar/     工作日历（支撑域）
+feature/insight/      统计（支撑域，读模型）
+build-logic/          构建约定插件（模块配置、架构校验、静态分析）
+```
+
+**一个限界上下文 = 一个 Gradle 模块**。上下文的职责与协作方式见
+[docs/20-domain/context-map.md](docs/20-domain/context-map.md)。
+
+---
+
+## 架构约束（机器强制，不是口号）
+
+| 约束 | 怎么被强制 |
+|---|---|
+| `domain` 层不得引用 Android / 框架 | `core:domain` 是 `kotlin("jvm")` 模块，**没有 Android 类路径，想写也写不出来**；feature 内的 `domain` 包由 `verifyDomainPurity` 逐文件扫描 |
+| `feature` 之间不得互相依赖 | `checkModuleDependencies` 校验依赖声明（只有 `:app` 可以依赖 feature）；Konsist 断言再查源码引用 |
+| 外部模型（DTO / Entity）不得进入领域层 | Konsist 断言 `ArchitectureTest` |
+| 代码风格与代码味道 | detekt（配置在 `config/detekt/detekt.yml`） |
+
+这些校验都接在 `check` 生命周期上，`./gradlew build` 会自动执行——
+**违规会让构建失败，而不是只出现在报告里**。
+
+---
+
+## 文档
+
+`docs/` 是项目事实的唯一权威来源，`AGENTS.md` 是操作规则。几个入口：
+
+| 想了解 | 看 |
+|---|---|
+| 项目做什么、不做什么 | [docs/00-charter/vision.md](docs/00-charter/vision.md) |
+| 术语的确切含义 | [docs/00-charter/glossary.md](docs/00-charter/glossary.md) |
+| 版本与选型 | [docs/00-charter/tech-baseline.md](docs/00-charter/tech-baseline.md) |
+| 上下文边界与协作 | [docs/20-domain/context-map.md](docs/20-domain/context-map.md) |
+| 未决问题 | [docs/20-domain/open-questions.md](docs/20-domain/open-questions.md) |
+| 架构决策（ADR） | [docs/30-architecture/](docs/30-architecture/) |
+| 进度与验收证据 | [docs/90-trace/traceability.md](docs/90-trace/traceability.md) |
+
+---
+
+## 隐私
+
+**不申请权限、不联网、不收集数据。** 每条结论都在 [PRIVACY.md](PRIVACY.md) 里给了
+可自行核对的命令——它是与代码对应的说明书，不是愿景宣言。
+
+## 参与开发
+
+先读 [AGENTS.md](AGENTS.md)（操作规则）与 [CONTRIBUTING.md](CONTRIBUTING.md)（怎么跑）。
+本项目采用文档驱动 + DDD 的工作方式：**先想清楚 → 再写下来 → 再实现 → 再验证 → 最后提交**。
+
+## 许可证
+
+[MIT](LICENSE)
