@@ -73,9 +73,10 @@ class LedgerEntryDaoTest {
         occurredAt: Long,
         bookedAt: Long = occurredAt,
         amountCents: Long = 1250,
+        direction: String = "Expense",
     ) = LedgerEntryEntity(
         id = id,
-        direction = "Expense",
+        direction = direction,
         amountCents = amountCents,
         categoryId = "food",
         occurredAtEpochMilli = occurredAt,
@@ -155,5 +156,31 @@ class LedgerEntryDaoTest {
         dao.deleteById("drop")
 
         assertEquals(listOf("keep"), dao.recent(limit = 10).map { it.id })
+    }
+
+    /** 合计只算匹配的方向与半开区间（`REQ-002` 跨上下文读端口用的那条 SQL） */
+    @Test
+    fun sum_only_counts_matching_direction_and_range() = runBlocking {
+        dao.insert(entity(id = "inRange", occurredAt = 1_500, amountCents = 100))
+        dao.insert(entity(id = "alsoInRange", occurredAt = 1_900, amountCents = 250))
+        // 方向不同：不算
+        dao.insert(entity(id = "income", occurredAt = 1_500, amountCents = 9_999, direction = "Income"))
+        // 下界含、上界不含
+        dao.insert(entity(id = "beforeFrom", occurredAt = 999, amountCents = 9_999))
+        dao.insert(entity(id = "atTo", occurredAt = 2_000, amountCents = 9_999))
+
+        val sum = dao.sumAmountCents(direction = "Expense", fromEpochMilli = 1_000, toEpochMilli = 2_000)
+
+        assertEquals(350, sum)
+    }
+
+    /** 空区间返回 0 而不是 NULL —— COALESCE 就是为这个加的（空月是正常的零，REQ-002/AC-3） */
+    @Test
+    fun sum_of_empty_range_is_zero() = runBlocking {
+        dao.insert(entity(id = "outside", occurredAt = 5_000, amountCents = 100))
+
+        val sum = dao.sumAmountCents(direction = "Expense", fromEpochMilli = 1_000, toEpochMilli = 2_000)
+
+        assertEquals(0, sum)
     }
 }

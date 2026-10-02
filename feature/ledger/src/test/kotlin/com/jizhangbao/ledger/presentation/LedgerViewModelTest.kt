@@ -270,4 +270,43 @@ class LedgerViewModelTest {
         assertEquals(target.id, state.pendingDelete?.id)
         assertFalse(state.deletedNotice)
     }
+
+    @Test
+    fun `账本数据变化时修订号递增_供组合根重算合计`() = runTest(dispatcher) {
+        // 这是 REQ-002/AC-4 与 AC-5 在 Ledger 这一侧的**全部机制**：
+        // 合计属于另一个上下文（Insight），按 R2 它不能订阅账本，
+        // 于是由组合根观察这个修订号、在它变大时通知合计重算。
+        // 修订号不递增 = 记了账合计不动，而那在界面上看起来就像"数据没保存"。
+        seed(cents = 5_000) // 用不同的金额，好让后面那条 1250 是唯一的
+        val vm = viewModel()
+        advanceUntilIdle()
+        assertEquals(0, vm.uiState.value.entriesRevision)
+
+        // 记一笔 → +1
+        vm.onAmountChange("12.50")
+        vm.onCategorySelected(CategoryId("food"))
+        vm.onSave()
+        advanceUntilIdle()
+        assertEquals(1, vm.uiState.value.entriesRevision)
+
+        // 删一笔 → 再 +1（删除同样改变合计，不能只在保存时更新）
+        vm.onDeleteRequested(vm.uiState.value.entries.single { it.amount.cents == 1250L })
+        vm.onDeleteConfirmed()
+        advanceUntilIdle()
+        assertEquals(2, vm.uiState.value.entriesRevision)
+    }
+
+    @Test
+    fun `删除失败时修订号不变_不该通知合计重算`() = runTest(dispatcher) {
+        seed()
+        repository.removeOutcome = Outcome.Err(com.jizhangbao.core.domain.DomainError.Technical.Storage)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.onDeleteRequested(vm.uiState.value.entries.single())
+        vm.onDeleteConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(0, vm.uiState.value.entriesRevision)
+    }
 }

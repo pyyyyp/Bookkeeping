@@ -108,7 +108,13 @@ internal class LedgerViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = deleteEntry(target.id)) {
                 is Outcome.Ok -> {
-                    _uiState.update { it.copy(pendingDelete = null, deletedNotice = true) }
+                    _uiState.update {
+                        it.copy(
+                            pendingDelete = null,
+                            deletedNotice = true,
+                            entriesRevision = it.entriesRevision + 1,
+                        )
+                    }
                     refreshEntries()
                 }
                 is Outcome.Err -> _uiState.update {
@@ -153,8 +159,15 @@ internal class LedgerViewModel @Inject constructor(
             when (result) {
                 is Outcome.Ok -> {
                     _uiState.update {
-                        // 方向与分类保留（连着记几笔同类支出很常见），金额与备注清空
-                        it.copy(amountText = "", noteText = "", isSaving = false, failure = null)
+                        // 方向与分类保留（连着记几笔同类支出很常见），金额与备注清空；
+                        // 修订号 +1：让组合根知道"账本变了"（合计要重算）
+                        it.copy(
+                            amountText = "",
+                            noteText = "",
+                            isSaving = false,
+                            failure = null,
+                            entriesRevision = it.entriesRevision + 1,
+                        )
                     }
                     refreshEntries()
                 }

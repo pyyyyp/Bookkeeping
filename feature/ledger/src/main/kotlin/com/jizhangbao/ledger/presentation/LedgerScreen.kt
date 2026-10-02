@@ -15,6 +15,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,15 +36,37 @@ import java.time.ZoneOffset
  * 签名里**没有内部类型**：`LedgerViewModel` 是 `internal` 的，
  * 所以这里不接收它作参数，而是在函数体内取——这样 `:app` 只需调用 `LedgerRoute()`，
  * 不必看见 ViewModel 的类型（模块的内部实现不泄露到公共 API）。
+ *
+ * @param onEntriesChanged 账本数据发生变化时被调用（成功记账或删除各一次）。
+ *   由组合根用来通知其他上下文重算（`T-009`：Insight 的合计）。本模块**不认识** Insight，
+ *   它只是把"我这里变了"说出来 —— 这是 R2 之下唯一可行的做法。
+ * @param header 界面顶部的**通用插槽**（表单之上）。`:app` 用它把合计区放进来，
+ *   于是 Ledger 不必知道合计区是谁、属于哪个上下文。
  */
 @Composable
-fun LedgerRoute() {
-    LedgerRoute(viewModel = hiltViewModel())
+fun LedgerRoute(
+    onEntriesChanged: () -> Unit = {},
+    header: @Composable () -> Unit = {},
+) {
+    LedgerRoute(
+        viewModel = hiltViewModel(),
+        onEntriesChanged = onEntriesChanged,
+        header = header,
+    )
 }
 
 @Composable
-internal fun LedgerRoute(viewModel: LedgerViewModel) {
+internal fun LedgerRoute(
+    viewModel: LedgerViewModel,
+    onEntriesChanged: () -> Unit = {},
+    header: @Composable () -> Unit = {},
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // 修订号变大 = 账本数据变了。初始的 0 不触发（那时还没发生任何变化）
+    LaunchedEffect(state.entriesRevision) {
+        if (state.entriesRevision > 0) onEntriesChanged()
+    }
 
     LedgerScreen(
         state = state,
@@ -56,11 +79,12 @@ internal fun LedgerRoute(viewModel: LedgerViewModel) {
         onDeleteRequested = viewModel::onDeleteRequested,
         onDeleteConfirmed = viewModel::onDeleteConfirmed,
         onDeleteCancelled = viewModel::onDeleteCancelled,
+        header = header,
     )
 }
 
 /**
- * 记账界面骨架：上方表单，下方最近账目。
+ * 记账界面骨架：顶部插槽、表单、最近账目。
  *
  * 只负责布局与「哪个回调接到哪个子组件」，具体控件在
  * [EntryForm] 与 [EntriesSection] 里——这样这个函数不必既管骨架又管细节。
@@ -78,6 +102,7 @@ internal fun LedgerScreen(
     onDeleteRequested: (com.jizhangbao.ledger.domain.model.LedgerEntry) -> Unit,
     onDeleteConfirmed: () -> Unit,
     onDeleteCancelled: () -> Unit,
+    header: @Composable () -> Unit = {},
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     val zone = remember { ZoneId.systemDefault() }
@@ -92,6 +117,8 @@ internal fun LedgerScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            header()
+
             EntryForm(
                 state = state,
                 zone = zone,

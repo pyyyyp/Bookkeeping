@@ -34,4 +34,30 @@ interface LedgerEntryDao {
             "LIMIT :limit",
     )
     suspend fun recent(limit: Int): List<LedgerEntryEntity>
+
+    /**
+     * 某个方向、某个时间范围内的金额合计（`REQ-002`，跨上下文读端口用）。
+     *
+     * ## 三个刻意的选择
+     *
+     * 1. **在 SQL 里 SUM，而不是把整表读进内存再相加**。条目量级会增长，而合计是每次
+     *    记账/删除都要重算的。数据库本来就是干这个的。
+     * 2. **`COALESCE(..., 0)`**：没有任何匹配行时 `SUM` 返回 `NULL`，
+     *    而"空月"在领域里是正常的零（`MonthlyTotals.ZERO`），不是"没有数据"（`REQ-002/AC-3`）。
+     * 3. **区间半开** `[from, to)`，与 `TimeRange` 的口径一致 ——
+     *    否则跨月边界的那一毫秒会被算进两个月。
+     *
+     * 归属口径是 `occurredAtEpochMilli`（**发生时间**），不是录入时间（`REQ-002/BR-2`）。
+     */
+    @Query(
+        "SELECT COALESCE(SUM(amountCents), 0) FROM ledger_entry " +
+            "WHERE direction = :direction " +
+            "AND occurredAtEpochMilli >= :fromEpochMilli " +
+            "AND occurredAtEpochMilli < :toEpochMilli",
+    )
+    suspend fun sumAmountCents(
+        direction: String,
+        fromEpochMilli: Long,
+        toEpochMilli: Long,
+    ): Long
 }

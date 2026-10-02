@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  用户可见字符串全部在这里（AGENTS.md 第 7 节第 12 条）。
+  ViewModel 与 UI 之间传的是布尔/枚举，文案只在这一层映射。
+-->
+<resources>
+    <!-- 例：2026 年 10 月 -->
+    <string name="insight_month_format">%1$d 年 %2$d 月</string>
+    <string name="insight_previous_month">上一月</string>
+    <string name="insight_next_month">下一月</string>
+    <string name="insight_expense_total">支出</string>
+    <string name="insight_income_total">收入</string>
+    <string name="insight_net_total">结余</string>
+    <string name="insight_empty_month">这个月还没有记账。</string>
+    <string name="insight_failure">合计暂时读不出来：本机数据库出错。</string>
+</resources>
