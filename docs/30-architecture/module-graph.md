@@ -47,15 +47,22 @@
 
 ## 模块清单
 
-| 模块 | 类型 | namespace | 依赖 | 负责的上下文 |
-|---|---|---|---|---|
-| `:app` | Android Application | | 全部 feature | — |
-| `:core:domain` | **Kotlin JVM** | — | 无 | — |
-| `:core:ui` | Android Library | | core:domain | — |
-| `:core:data` | Android Library | | core:domain | — |
-| `:core:common` | Android Library | | 无 | — |
-| `:core:testing` | Android Library | | core:domain | — |
-| `:feature:<x>` | Android Library | | core:domain, core:ui | <x> |
+> 状态列：⬜ 待建立（T-001）/ ✅ 已建立。
+> 上下文清单来自 `docs/20-domain/context-map.md`（**草稿 v0.1，待评审**）。
+
+| 模块 | 类型 | namespace | 依赖 | 负责的上下文 | 状态 |
+|---|---|---|---|---|---|
+| `:app` | Android Application | `com.jizhangbao.app` | 全部 feature | — | ⬜ |
+| `:core:domain` | **Kotlin JVM** | — | 无 | 共享内核 | ⬜ |
+| `:core:ui` | Android Library | `com.jizhangbao.core.ui` | core:domain | 设计系统 | ⬜ |
+| `:core:data` | Android Library | `com.jizhangbao.core.data` | core:domain | 网络/数据库基础设施 | ⬜ |
+| `:core:common` | Android Library | `com.jizhangbao.core.common` | 无 | 日志/时间/调度器 | ⬜ |
+| `:core:testing` | Android Library | `com.jizhangbao.core.testing` | core:domain | Fake / 测试数据构造器 | ⬜ |
+| `:feature:ledger` | Android Library | `com.jizhangbao.ledger` | core:domain, core:ui | **Ledger 账本（核心域）** | ⬜ |
+| `:feature:worklog` | Android Library | `com.jizhangbao.worklog` | core:domain, core:ui | **Worklog 工时（核心域）** | ⬜ |
+| `:feature:payroll` | Android Library | `com.jizhangbao.payroll` | core:domain, core:ui | **Payroll 薪资（核心域）** | ⬜ |
+| `:feature:insight` | Android Library | `com.jizhangbao.insight` | core:domain, core:ui | Insight 统计（支撑域，读模型） | ⬜ |
+| `:feature:allocation` | 🔴 待定 | — | — | Allocation 分配（**存在性取决于 Q-003**） | 🔴 待定 |
 
 ## 校验命令
 
