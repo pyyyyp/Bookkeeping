@@ -97,6 +97,32 @@ PowerShell 读 WinINET 设置，因此走代理；**JVM 不读 WinINET**，只�
 `~/.gradle/gradle.properties` 里配 `systemProp.https.proxyHost/Port`，不要改仓库文件**
 （否则开源的使用者会被迫走你的代理）。
 
+**同一个根因在 `git push` 上被实测证实了（2026-10-02，不再是假设）**：
+
+```
+$ git push origin develop
+fatal: unable to access 'https://github.com/pyyyyp/Bookkeeping.git/':
+       Failed to connect to github.com port 443 after 21054 ms: Couldn't connect to server
+# 而同一时刻 PowerShell 访问 https://github.com 返回 HTTP 200
+
+$ git -c http.proxy=http://127.0.0.1:7890 push origin develop
+   2d906f1..22d124a  develop -> develop        ← 成功
+```
+
+结论：**PowerShell 走 WinINET 所以通，git（libcurl）不读 WinINET 所以不通**；
+这台机器上 `github.com:443` 的直连是**间歇性**的（前面几次 push 直连成功过），
+所以表现为「时好时坏」。排查口诀与 Gradle 那条相同：**能通的那个工具不一定用了同一条网络路径**。
+
+推送用的命令（**命令行级参数，不写入仓库或全局 git 配置**）：
+
+```powershell
+# 从注册表读系统代理，只对本次命令生效
+$p = "http://" + (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings').ProxyServer
+git -c "http.proxy=$p" push origin develop
+```
+
+> 不要把这写进仓库的 `.git/config` 或全局配置——那是本机环境，不该跟着仓库走。
+
 保留本地发行版作为兜底（`.tools/` 已 gitignore，不入库）：
 
 ```powershell
