@@ -32,25 +32,25 @@
 | REQ-003 | AC-3 编辑时领域规则照旧生效 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | `LedgerEntryReviseTest`（金额 0 被拒 / 与 `record` 给同样的 `CategoryRequired`）+ `LedgerViewModelEditTest`（非法金额时**仓储一次都没被调用**） | ✅ |
 | REQ-003 | AC-4 编辑不改变录入时间与条目身份 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | `LedgerEntryReviseTest`（`id` 与 `bookedAt` 不变）+ 用例测试 | ✅ |
 | REQ-003 | AC-5 编辑后本月合计立即更新 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | 真机冒烟：改成 40000.00 后合计**当场**变 `¥40037.50`（另一条 12.50→20.00 后变 `¥40045.00`）；`LedgerViewModelEditTest`（修订号递增） | ✅ |
-| REQ-003 | AC-6 取消编辑不改变任何东西 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | 真机冒烟：改成 999.00 后取消 → 数据库 `4 / 4804500` 前后一致、列表仍 `¥40000.00`；`LedgerViewModelEditTest`（取消时 `updateCallCount == 0`）。⚠️ 自动化点击没点中「取消编辑」按钮，**"退出编辑态"这个视觉结果未验到**（数据侧的保证已验证） | ✅ |
+| REQ-003 | AC-6 取消编辑不改变任何东西 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | **真机冒烟**：编辑态里存在「取消编辑」→ 点它之后回到「保存」、金额框清空、没有「正在修改这条记录」，数据库一字未变（`4 / 4804500` 前后一致）；`LedgerViewModelEditTest`（取消时 `updateCallCount == 0`）。⚠️ "点开编辑那一刻的**字段回填**"在这一轮没抓到（`T-011` 当轮抓到过：金额框显示 `34213.00`） | ✅ |
 | REQ-003 | AC-7 编辑后重启仍在 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | 真机冒烟：`am force-stop` 后重启，列表仍是 `¥40000.00`；数据库直查一致 | ✅ |
 | REQ-003 | AC-8 编辑已不存在的条目时给出明确结果 | Ledger | `LedgerEntry` | T-011 | 见本轮提交 | `LedgerEntryRepositoryUpdateTest`（0 行 → `EntryNotFound` 且**不插入**）+ `ReviseLedgerEntryUseCaseTest` + `LedgerViewModelEditTest`；**反向验证**：把该分支改成无条件成功 → 恰好那一条失败 | ✅ |
 | REQ-004 | AC-1 新建分类并立刻可用 | Ledger | `Category` | T-012 | 见本轮提交 | **真机冒烟**：顶栏「分类」→ 新建 `pet` → 出现在「我的分类」，数据库有 `custom-e6e90f97-…` / `pet` / `archived=0`；关闭对话框后表单选择器里就有 `pet`；`CategoryUseCasesTest`（新建落库、标识带 `custom-` 前缀） | ✅ |
-| REQ-004 | AC-2 重命名后历史条目跟着显示新名字 | Ledger | `Category` | T-012 | 见本轮提交 | `CategoryUseCasesTest`（改名只换名字、标识不变、改成自己不算重名）+ `CategoryAggregateTest`。⚠️ **"历史条目显示新名字"这一段真机没验到**（自动化没能把引用该分类的那笔账存下来）；机制上是成立的：条目只存 id，名字由状态解析 | ✅ |
+| REQ-004 | AC-2 重命名后历史条目跟着显示新名字 | Ledger | `Category` | T-012 | 见本轮提交 | `CategoryUseCasesTest`（改名只换名字、标识不变）+ **真机冒烟**：造一条引用该分类的账目（`pet`）→ 分类管理里改名为 `petx` → **列表那行立刻显示 `petx`**；再改为 `pety` → 列表显示 `pety` | ✅ |
 | REQ-004 | AC-3 归档后不再出现在选择器，但历史条目照旧显示 | Ledger | `Category` | T-012 | 见本轮提交 | `LedgerUiStateCategoryTest`（可选分类排除已归档 / 显示名仍能解析已归档 / 查不到退回标识）+ `CategoryUseCasesTest`（归档仍在 `all()` 里——数据层刻意不过滤） | ✅ |
 | REQ-004 | AC-4 归档可以撤销 | Ledger | `Category` | T-012 | 见本轮提交 | `CategoryUseCasesTest`（归档 → 恢复）+ `CategoryAggregateTest`（两个方向都幂等） | ✅ |
 | REQ-004 | AC-5 同名分类被拒绝 | Ledger | `Category` | T-012 | 见本轮提交 | `CategoryUseCasesTest`（重名被拒**且不落库** / 忽略空白与大小写 / 已归档的名字可以让出来 / 改名撞别人被拒） | ✅ |
 | REQ-004 | AC-6 名字不合法时被拒绝 | Ledger | `Category` | T-012 | 见本轮提交 | `CategoryAggregateTest`（空 / 全空格 / 超 20 字被拒；正好 20 字合法；前后空白被去掉）+ 用例返回 `CategoryNameInvalid` | ✅ |
 | REQ-004 | AC-7 预置分类是只读的 | Ledger | `Category` | T-012 | 见本轮提交 | **真机冒烟**：对话框里内置分类只列出名字、**没有任何按钮**，并显示"内置分类不能改名或归档 —— 否则恢复默认就说不清该恢复成什么了" | ✅ |
-| REQ-004 | AC-8 归档一个仍被引用的分类不会破坏那些条目 | Ledger | `Category` | T-012 | 见本轮提交 | `CategoryUseCasesTest` + `CategoryRepositoryImplTest`（归档只是把 `archived` 置位，行永远在、不删）。⚠️ 真机上**没构造"归档一条已被引用的分类"**（那笔账没存上），所以这一条的真机证据缺一半 | ✅ |
+| REQ-004 | AC-8 归档一个仍被引用的分类不会破坏那些条目 | Ledger | `Category` | T-012 | 见本轮提交 | **真机冒烟**：归档引用中的分类 → **选择器里没有了**（`petx` 节点数 = 0），而那条历史账照旧显示它的名字；并且**占比区照样把它计入**（三行金额之和 == 支出合计，见 `REQ-005/AC-4`）。另有 `CategoryUseCasesTest` + `CategoryRepositoryImplTest`（归档只把 `archived` 置位，行永远在） | ✅ |
 | REQ-004 | AC-9 升级后原有数据都在 | Ledger | `Category` | T-012 | 见本轮提交 | **真机冒烟**：迁移 SQL 与 Room 生成的 schema **逐字一致**、`1.json` 一字节未变；在带 4 条真实账目的模拟器上装 v2 → `user_version` 1→2、**4 条与合计 `4804500` 一分未少**、没崩、`category` 表建成、`room_master_table` 在 | ✅ |
-| REQ-005 | AC-1 看到本月支出按分类的清单 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | `LedgerExpensesByCategoryTest`（按分类汇总 + 解析显示名：`宠物`/`餐饮`，占比 `75.0%`）+ `CategoryShareList` 渲染名字/金额/占比。⚠️ **真机没跑**（本轮用在实现与测试上，冒烟留到下一轮） | ✅ |
+| REQ-005 | AC-1 看到本月支出按分类的清单 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | **真机冒烟**：界面显示 `支出构成 / 娱乐 ¥40000.00 99.9% / 餐饮 ¥45.00 0.1% / pety ¥7.00 0.0%`；另有 `LedgerExpensesByCategoryTest`（按分类汇总 + 解析显示名）+ `CategoryShareList` 渲染名字/金额/占比 | ✅ |
 | REQ-005 | AC-2 金额大的排在前面 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | `CategoryBreakdownTest`（金额降序；**金额相同时按分类名**——否则同一份数据两次渲染可能不同） | ✅ |
 | REQ-005 | AC-3 占比各自四舍五入，不强行凑成 100% | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | `CategoryBreakdownTest`（三个等额分类各 `33.3%`，千分点之和 = `999`）+ `Percentage` 用整数千分点、不经浮点 | ✅ |
-| REQ-005 | AC-4 已归档的分类仍出现在清单里 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | `LedgerExpensesByCategoryTest`（归档的"话费"照样计入，且**各分类之和 == 合计**）+ `Category` 名称解析走 `mergedWith`（含已归档）。⚠️ 真机没跑 | ✅ |
+| REQ-005 | AC-4 已归档的分类仍出现在清单里 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | **真机冒烟**：已归档的 `pety` 仍出现在占比里，且 **三行金额之和 40000 + 45 + 7 = 40052 == 界面上的支出合计**；另有 `LedgerExpensesByCategoryTest`（归档的照样计入，各分类之和 == 合计） | ✅ |
 | REQ-005 | AC-5 没有支出时给空状态 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | `CategoryBreakdownTest`（合计 0 → `EMPTY`；有合计无行也是 `EMPTY`）+ `CategoryShareList` 的空态文案；整月无记账时不重复叠一句 | ✅ |
 | REQ-005 | AC-6 跨月补记的条目不会进本月清单 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | `LedgerExpensesByCategoryTest`（9-30 的与正好等于 `end` 的都不进；半开区间 `[start, end)`） | ✅ |
-| REQ-005 | AC-7 翻月时清单与合计一起变 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | **真机冒烟**：点「上一月」→ 合计变 ¥0.00 与占比区**同时**变化（「支出构成」整块消失、没留 10 月旧数据）；点「下一月」两者一起回来。机制上两者在 ViewModel 的**同一次 `refresh()`** 里取，且共用 `YearMonth.toTimeRange` 的同一个换算。⚠️ 仍无**自动化**断言（两个 fake 都记录了收到的范围，但没写"两者必须相同"的断言） | ✅ |
+| REQ-005 | AC-7 翻月时清单与合计一起变 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | **自动化**：`LoadCategoryShareUseCaseTest` 断言同一月份下两者从端口拿到的 `TimeRange` **相等**；`MonthlyTotalsViewModelTest` 断言翻月后两者收到同一个新区间。**真机冒烟**：点「上一月」→ 合计与占比区同时变化（占比区整块消失、没留旧数据）→ 点「下一月」一起回来 | ✅ |
 | REQ-005 | AC-8 收入不进入占比清单 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | `LedgerExpensesByCategoryTest`（一笔 8000 的收入 → 清单为空，分母只是支出）+ 端口的 `expensesByCategory` 固定按 `Expense` 查 | ✅ |
 
 **状态图例**：✅ 已完成 / 🚧 进行中 / ⏳ 待开始 / ❌ 已废弃
