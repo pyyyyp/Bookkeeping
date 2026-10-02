@@ -63,6 +63,33 @@ interface LedgerEntryDao {
     ): Long
 
     /**
+     * 某个方向、某个范围内的金额**按分类分组**（`REQ-005`，分类占比用）。
+     *
+     * 归属口径与 [sumAmountCents] **完全一致**（发生时间、半开区间、`COALESCE`）——
+     * 两个数字并排显示在同一屏上，口径不一致就是错的（`REQ-005/BR-5`）。
+     *
+     * **不按 `archived` 过滤**，也没法过滤：这里只看得见条目的 `categoryId`。
+     * 已归档的分类必须计入（`BR-2`），否则各分类之和 ≠ 支出合计。
+     *
+     * 排序写在这里只是为了结果确定；真正生效的是 `CategoryBreakdown.of` 里的排序
+     * （换数据源也成立，且能在纯 JVM 上测）。
+     */
+    @Query(
+        "SELECT categoryId AS categoryId, COALESCE(SUM(amountCents), 0) AS amountCents " +
+            "FROM ledger_entry " +
+            "WHERE direction = :direction " +
+            "AND occurredAtEpochMilli >= :fromEpochMilli " +
+            "AND occurredAtEpochMilli < :toEpochMilli " +
+            "GROUP BY categoryId " +
+            "ORDER BY amountCents DESC, categoryId ASC",
+    )
+    suspend fun sumByCategory(
+        direction: String,
+        fromEpochMilli: Long,
+        toEpochMilli: Long,
+    ): List<CategorySumRow>
+
+    /**
      * 用同样的主键**整行替换**（`REQ-003`）。
      *
      * 用 `@Update` 而不是手写 `UPDATE ... SET`：列清单由 Room 从实体生成，

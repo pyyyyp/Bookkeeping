@@ -35,6 +35,15 @@ class CategoryCatalog internal constructor(private val categories: List<Category
 
     fun byId(id: CategoryId): Category? = categories.firstOrNull { it.id == id }
 
+    /**
+     * 内置清单与自定义分类合并（`REQ-004`）：**预置在前**，自定义在后。
+     *
+     * 两个消费者都要这份合并结果：界面用的分类清单（`LoadCategoriesUseCase`）
+     * 与占比里的**名字解析**（`LedgerTotalsReaderImpl`）。
+     * 合并放在这里，「预置从哪来、顺序如何」就只有一处说法 —— 分开写迟早漂移。
+     */
+    fun mergedWith(custom: List<Category>): List<Category> = categories + custom
+
     companion object {
         /**
          * 随应用内置的分类。`other` 两个方向都可用。

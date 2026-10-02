@@ -2,7 +2,9 @@ package com.jizhangbao.insight.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jizhangbao.core.domain.CategoryBreakdown
 import com.jizhangbao.core.domain.Outcome
+import com.jizhangbao.insight.application.LoadCategoryShareUseCase
 import com.jizhangbao.insight.application.LoadMonthlyTotalsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +32,7 @@ import javax.inject.Inject
 @HiltViewModel
 internal class MonthlyTotalsViewModel @Inject constructor(
     private val loadMonthlyTotals: LoadMonthlyTotalsUseCase,
+    private val loadCategoryShare: LoadCategoryShareUseCase,
     private val clock: Clock,
 ) : ViewModel() {
 
@@ -58,6 +61,16 @@ internal class MonthlyTotalsViewModel @Inject constructor(
                 is Outcome.Err -> _uiState.update {
                     // 查不到与"这个月没花钱"必须区分：前者是错误，后者是零
                     it.copy(isLoading = false, hasFailure = true)
+                }
+            }
+
+            // 占比在同一次刷新里取（REQ-005/AC-7）：翻月时两者必须一起变，
+            // 分两次刷新就可能出现"合计是 10 月、占比还是 9 月"的同屏矛盾
+            when (val share = loadCategoryShare(month)) {
+                is Outcome.Ok -> _uiState.update { it.copy(breakdown = share.value) }
+                is Outcome.Err -> _uiState.update {
+                    // 与合计同一个立场：查不到是错误（显式提示），不是"没有支出"
+                    it.copy(hasFailure = true, breakdown = CategoryBreakdown.EMPTY)
                 }
             }
         }

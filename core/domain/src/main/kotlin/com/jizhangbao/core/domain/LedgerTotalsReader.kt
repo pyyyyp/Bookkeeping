@@ -31,4 +31,20 @@ interface LedgerTotalsReader {
      * "没有记账"是正常状态，"查不到"才是错误。
      */
     suspend fun totalsIn(range: TimeRange): Outcome<MonthlyTotals>
+
+    /**
+     * 统计 `range` 内的**支出按分类**的合计（`REQ-005`）。
+     *
+     * ## 三条由实现方遵守的口径
+     *
+     * 1. **归属与 [totalsIn] 完全一致**（按发生时间、半开区间）——
+     *    两个数字并排出现在同一屏上，口径不一致就是错的（`REQ-005/BR-5`）。
+     * 2. **只统计支出**（`BR-1`）：收入通常只有一两类，占比没有信息量。
+     * 3. **已归档的分类照样计入**（`BR-2`）：排除它会让各分类之和 ≠ 支出合计。
+     *    分类名因此也要能解析出已归档的那些（`ADR-0009`）。
+     *
+     * 区间内没有支出时返回 [CategoryBreakdown.EMPTY]，**不是** [Outcome.Err]：
+     * 与 [totalsIn] 同一个立场，"没有支出"是正常状态。
+     */
+    suspend fun expensesByCategory(range: TimeRange): Outcome<CategoryBreakdown>
 }

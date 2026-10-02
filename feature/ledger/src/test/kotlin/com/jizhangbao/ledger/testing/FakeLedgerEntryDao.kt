@@ -1,5 +1,6 @@
 package com.jizhangbao.ledger.testing
 
+import com.jizhangbao.ledger.data.local.CategorySumRow
 import com.jizhangbao.ledger.data.local.LedgerEntryDao
 import com.jizhangbao.ledger.data.local.LedgerEntryEntity
 
@@ -73,5 +74,28 @@ internal class FakeLedgerEntryDao : LedgerEntryDao {
         if (index < 0) return 0
         inserted[index] = entity
         return 1
+    }
+
+    /**
+     * 按分类分组的求和（`REQ-005`）。
+     *
+     * 真的按存储的行算（与 [sumAmountCents] 同一立场），所以"已归档的分类照样计入"
+     * 这条规则在被测的实现里是**真的成立**的 —— 归档只影响记账选择器，不影响这里。
+     */
+    override suspend fun sumByCategory(
+        direction: String,
+        fromEpochMilli: Long,
+        toEpochMilli: Long,
+    ): List<CategorySumRow> {
+        failure?.let { throw it }
+        return inserted
+            .filter {
+                it.direction == direction &&
+                    it.occurredAtEpochMilli >= fromEpochMilli &&
+                    it.occurredAtEpochMilli < toEpochMilli
+            }
+            .groupBy { it.categoryId }
+            .map { (categoryId, rows) -> CategorySumRow(categoryId, rows.sumOf { it.amountCents }) }
+            .sortedWith(compareByDescending<CategorySumRow> { it.amountCents }.thenBy { it.categoryId })
     }
 }
