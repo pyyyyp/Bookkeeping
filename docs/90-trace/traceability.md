@@ -50,7 +50,7 @@
 | REQ-005 | AC-4 已归档的分类仍出现在清单里 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | `LedgerExpensesByCategoryTest`（归档的"话费"照样计入，且**各分类之和 == 合计**）+ `Category` 名称解析走 `mergedWith`（含已归档）。⚠️ 真机没跑 | ✅ |
 | REQ-005 | AC-5 没有支出时给空状态 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | `CategoryBreakdownTest`（合计 0 → `EMPTY`；有合计无行也是 `EMPTY`）+ `CategoryShareList` 的空态文案；整月无记账时不重复叠一句 | ✅ |
 | REQ-005 | AC-6 跨月补记的条目不会进本月清单 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | `LedgerExpensesByCategoryTest`（9-30 的与正好等于 `end` 的都不进；半开区间 `[start, end)`） | ✅ |
-| REQ-005 | AC-7 翻月时清单与合计一起变 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | 机制成立：两者在 ViewModel 的**同一次 `refresh()`** 里取，且共用 `YearMonth.toTimeRange` 的同一个换算。⚠️ **没有专门断言、也没有真机证据** —— 这是本卡最大的缺口 | ✅ |
+| REQ-005 | AC-7 翻月时清单与合计一起变 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | **真机冒烟**：点「上一月」→ 合计变 ¥0.00 与占比区**同时**变化（「支出构成」整块消失、没留 10 月旧数据）；点「下一月」两者一起回来。机制上两者在 ViewModel 的**同一次 `refresh()`** 里取，且共用 `YearMonth.toTimeRange` 的同一个换算。⚠️ 仍无**自动化**断言（两个 fake 都记录了收到的范围，但没写"两者必须相同"的断言） | ✅ |
 | REQ-005 | AC-8 收入不进入占比清单 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | `LedgerExpensesByCategoryTest`（一笔 8000 的收入 → 清单为空，分母只是支出）+ 端口的 `expensesByCategory` 固定按 `Expense` 查 | ✅ |
 
 **状态图例**：✅ 已完成 / 🚧 进行中 / ⏳ 待开始 / ❌ 已废弃
