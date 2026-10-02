@@ -1,9 +1,14 @@
 [versions]
 # 已核实：https://kotlinlang.org/docs/releases.html（2026-09-07 发布，2.4 release line）
 kotlin = "2.4.20"
+# 已核实：https://developer.android.google.cn/build/releases/agp-9-4-0-release-notes（2026-09）
+agp = "9.4.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+android-application = { id = "com.android.application", version.ref = "agp" }
