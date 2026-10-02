@@ -205,8 +205,37 @@ pwsh ./scripts/verify-traceability.ps1                    # 6 追溯矩阵校验
 >   `chmod +x` 兜底。
 >
 > 参与开发的完整说明见仓库根的 `CONTRIBUTING.md`。
-> ⚠️ **CI 尚未在真实 runner 上验证过**（仓库还没有远端），见
-> `docs/40-tasks/T-004-ci-pipeline.md` 的豁免项。
+>
+> ✅ **CI 已在真实 runner 上跑通**（2026-10-02，仓库
+> `https://github.com/pyyyyp/Bookkeeping`，[run #5](https://github.com/pyyyyp/Bookkeeping/actions/runs/37008580857)
+> 全部步骤 success，约 305 秒）。首次推送时它失败了 4 次，排查过程见
+> `docs/40-tasks/T-004-ci-pipeline.md` 的「真实 CI 调试记录」。
+
+### CI 排障：**读不到日志时怎么诊断**
+
+这条记在这里，因为它是这轮唯一真正有用的技巧：
+
+- **job 日志需要鉴权**：匿名调用 `GET /repos/{owner}/{repo}/actions/jobs/{id}/logs`
+  返回 **403**，所以「把日志拉下来看」这条路走不通。
+- **check-run 注解可以匿名读**：`GET /repos/{owner}/{repo}/check-runs/{id}/annotations`
+  对公开仓库无需凭据即可返回。失败步骤的 `Process completed with exit code N` 就在里面。
+- 因此本项目把 CI 的关键诊断信息用 `echo "::warning::..."` 发出去——
+  **它会变成注解，也就是我能读到的东西**。失败时不必再猜一轮。
+
+已经踩到并绕开的四个坑（全部有实测证据）：
+
+| 坑 | 现象 | 处置 |
+|---|---|---|
+| `android-actions/setup-android@v3` | 步骤 FAILED，其后全 skipped | 不再使用该 action；根因未证实（日志读不到），注解显示它属于被强制从 Node 20 迁到 Node 24 的 action |
+| runner 上 `sdkmanager` 不在 PATH | **exit 127**（命令未找到） | PATH → 镜像内查找 → 从 Google 的 `repository2-3.xml` **推导**文件名下载 |
+| `set -e` 让失败不可诊断 | 只给 exit 1，不知断在哪条 | 改为每条关键命令显式 `\|\| { echo "::error::..."; exit 1; }` + `::warning::` 面包屑 |
+| `yes \| sdkmanager --licenses` | 在 `pipefail` 下**必然**判失败（`yes` 收到 SIGPIPE） | 显式容忍；真正的门是后面的 `--install` |
+
+**两个关于 runner 镜像的事实**（实测，别再凭印象）：
+
+- Android SDK **预装**在 `/usr/local/lib/android/sdk`，但 `cmdline-tools` **不在 PATH**；
+- 镜像里**本来就有** `android-37.0`（还有 37.1 / 37.2、34、35、36 系列）。
+  显式安装那一步在镜像上是空操作，但保留它是对的——不能指望镜像版本不变。
 
 ## 架构校验：两条任务 + 一组源码断言
 
