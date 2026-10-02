@@ -20,16 +20,23 @@
 
 ## 变更清单
 
-- [ ] `:core:domain`：`SignedMoney` 值对象（带符号的差额，**不改 `Money` 的非负性**）
-- [ ] `:core:domain`：`MonthlyTotals`（income / expense / net，net 由前两者算出）
-- [ ] `:core:domain`：`LedgerTotalsReader` 端口（`ADR-0008`）
-- [ ] `:feature:ledger`：端口实现 —— `LedgerEntryDao` 的按月聚合查询（`SUM` + 条件）
-- [ ] `:feature:insight`：`LoadMonthlyTotalsUseCase`（`YearMonth` → `TimeRange`，本机时区半开区间）
-- [ ] `:feature:insight`：ViewModel + UiState（当前月、合计、月份切换）
-- [ ] `:app`：DI 装配（端口 ← Ledger 的实现）
-- [ ] 界面：在记账界面顶部（标题下方）显示三项合计 + 上/下月切换
-- [ ] 保存 / 删除后合计立即刷新
-- [ ] 冒烟：记一笔 → 合计变化 → 删除 → 合计回退 → 翻到上一月看到该月的值
+- [x] `:core:domain`：`SignedMoney` 值对象（带符号的差额，**不改 `Money` 的非负性**）
+- [x] `:core:domain`：`MonthlyTotals`（income / expense / net，net 由前两者算出）
+- [x] `:core:domain`：`LedgerTotalsReader` 端口（`ADR-0008`）
+- [x] `:feature:ledger`：端口实现 —— 聚合查询（`COALESCE(SUM(...), 0)` + 半开区间）
+      + `LedgerTotalsReaderImpl`（`runCatching` + 取消重抛，与仓储实现同一套）
+- [x] `:feature:insight`：`LoadMonthlyTotalsUseCase`（`YearMonth` → `TimeRange`，本机时区半开区间）
+- [x] `:feature:insight`：ViewModel + UiState（当前月、三项合计、上/下月；当月禁用「下一月」= `BR-7`）
+- [x] `:app`：DI 装配（端口 ← Ledger 的实现）。**编译期即得证**：Hilt 在构建时校验依赖图，
+      `assembleDebug` 通过就意味着这个跨模块绑定成立
+- [x] 界面：合计区通过记账界面的**通用顶部插槽**放在标题下方。
+      ⚠️ 关键约束：Ledger **不能**引用 Insight（R2），所以拼装只能在组合根做 ——
+      Ledger 提供插槽 + 「数据变了」的修订号，Insight 提供 `refreshSignal`，两边互不认识
+- [x] 保存 / 删除后合计立即刷新（修订号 → 组合根 → `refreshSignal`）
+- [x] 冒烟：记一笔 → 合计从 ¥25.00 变 ¥37.50；翻到上一月（9 月 ¥0.00 + 空月提示）
+- [x] **顺带修掉一个真缺陷**：`:app` 原本注入 `Clock.systemUTC()`，其 `zone` 是 UTC ——
+      那会让「本月」变成 **UTC 的月**，违反 `BR-1`（东八区用户在月初/月末会看到错的合计）。
+      已改为 `systemDefaultZone()`。`instant()` 与时区无关，所以**既有行为不变**
 
 ## 验收
 

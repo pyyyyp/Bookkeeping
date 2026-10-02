@@ -35,6 +35,17 @@ internal data class LedgerUiState(
     val pendingDelete: LedgerEntry?,
     /** 刚刚删掉了一条 —— 用于给出反馈，不让操作结果静默。 */
     val deletedNotice: Boolean,
+    /**
+     * 账本数据的**修订号**：每次成功记账/删除都 +1。
+     *
+     * 它的存在是为了让「账本变了」这件事能被**组合根**观察到（`T-009`）：
+     * Insight 是另一个上下文，按 R2 它不能订阅账本；`:app` 同时看得见两边，
+     * 于是它观察这个数字、在变大时通知合计区重算。
+     *
+     * 刻意不用回调：ViewModel 持有界面回调会让它在测试里难以构造，
+     * 而"状态里多一个计数器"是可观察、可断言、可回放的。
+     */
+    val entriesRevision: Int,
 ) {
 
     /** 当前方向下可选的分类（预置清单已按方向过滤）。 */
@@ -58,6 +69,7 @@ internal data class LedgerUiState(
             isSaving = false,
             pendingDelete = null,
             deletedNotice = false,
+            entriesRevision = 0,
         )
     }
 }
