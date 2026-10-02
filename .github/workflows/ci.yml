@@ -3,12 +3,19 @@
 # 目标：把「提交前门禁」与「追溯矩阵完整性」从人的自觉变成机器的强制（原则 P4）。
 #
 # ⚠️ 诚实声明：本文件**已在真实 runner 上运行过**（2026-10-02，
-# https://github.com/pyyyyp/Bookkeeping）。首次与第二次运行都失败在「装 Android SDK」这一步，
-# 当时用的是 android-actions/setup-android@v3；GitHub 的失败日志需鉴权下载，
-# 我们读不到，因此**根因未证实**。现已改为使用 runner 预装 SDK + 显式安装组件，
-# 并让该步骤打印诊断信息（ANDROID_HOME / sdkmanager 路径 / 版本），下次失败时日志即答案。
+# https://github.com/pyyyyp/Bookkeeping）。前三次运行的结论：
+#   #1 / #2  失败在 `android-actions/setup-android@v3`。GitHub 的 job 日志需鉴权下载
+#            （匿名 API 返回 403），所以**根因未证实**；但 check-run 注解显示该 action
+#            属于「target 到 Node 20、被强制跑在 Node 24 上」的那一批。
+#   #3       改为自己准备 SDK 后，失败在 **exit code 127 = 命令未找到**：runner 上
+#            `sdkmanager` 不在 PATH。（诊断来源：check-run 注解 API，公开仓库可匿名读——
+#            这也是本项目在 CI 里用 ::warning:: 发关键信息的原因。）
+#   #4 (本版) PATH 找不到就在镜像里找，再找不到就**从 Google 的 repository 清单推导**
+#            cmdline-tools 文件名下载，不写死 build 号。
 #
-# 仍未验证：android-37.0 在这条路径上是否可用、各步实际耗时。
+# 仍未验证：android-37.0 能否装上、各步实际耗时。
+# 已知技术债：checkout@v4 / upload-artifact@v4 / setup-gradle@v4 仍 target Node 20
+#            （最新主版本分别是 v7 / v7 / v6），会持续产生弃用告警，见 T-004 卡。
 #
 # 与 AGENTS.md 阶段 E 的对应关系（逐项一致，顺序也一致）：
 #   ./gradlew detekt                          → 「静态分析」
@@ -51,7 +58,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 装 JDK 21
-        uses: actions/setup-java@v4
+        # v4 已被上游标记为 deprecated 且不再更新（check-run 注解提示），故升到 v6
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -60,25 +68,53 @@ jobs:
       - name: 配置 Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: 安装本工程需要的 Android SDK 组件
-        # ⚠️ 刻意**不用** android-actions/setup-android：首次推送时它在 @v3 上就失败了
-        # （步骤「装 Android SDK」FAILED，其后的步骤全部 skipped），而 GitHub 的失败日志
-        # 需要鉴权下载，我们读不到——**根因未证实**。与其依赖一个无法诊断的第三方 action，
-        # 不如用 runner 镜像里预装的 SDK 自己装组件，并让这一步打印诊断信息：
-        # 下次若还失败，日志本身就是答案。
-        #
-        # compileSdk 37 由 Compose BOM 2026.09 的下限决定（见 ADR-0003 决策 3），
-        # 所以 android-37.0 必须显式安装，不能指望镜像里恰好有。
+      - name: 准备 sdkmanager（刻意不依赖第三方 action）
+        # 为什么不用 `uses: android-actions/setup-android`：
+        # 首次推送时它在 @v3 上就失败了（该步骤 FAILED，其后全部 skipped）。GitHub 的失败日志
+        # 需要鉴权下载，我们读不到——**根因未证实**；但 check-run 注解显示它属于
+        # 「target 到 Node 20、被强制跑在 Node 24 上」的那批 action，与该仓库的 Node 24
+        # 迁移 issue 吻合。与其依赖一个失败时无法诊断的第三方 action，不如自己准备：
+        # 先找镜像里预装的，找不到就**从 Google 自己的 repository 清单推导文件名**再下载
+        # （不写死 build 号，否则迟早 404）。
         run: |
           set -euo pipefail
           echo "ANDROID_HOME=${ANDROID_HOME:-<未设置>}"
           echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-<未设置>}"
-          echo "sdkmanager 路径 = $(command -v sdkmanager || echo '<未找到>')"
+          echo "PATH 上的 sdkmanager = $(command -v sdkmanager || echo '<无>')"
+          if command -v sdkmanager >/dev/null 2>&1; then
+            sdkmanager --version
+            exit 0
+          fi
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/android-sdk}}"
+          echo "候选 SDK 目录 = $SDK"
+          CAND="$(find "$SDK" -maxdepth 4 -type f -name sdkmanager 2>/dev/null | head -1 || true)"
+          if [ -z "$CAND" ]; then
+            ZIP="$(curl -sS https://dl.google.com/android/repository/repository2-3.xml \
+                   | grep -o 'commandlinetools-linux-[0-9]*_latest\.zip' | head -1)"
+            echo "::warning::镜像里没有 cmdline-tools，改为下载 $ZIP"
+            mkdir -p "$SDK/cmdline-tools"
+            curl -sSLo /tmp/cmdline-tools.zip "https://dl.google.com/android/repository/$ZIP"
+            unzip -q /tmp/cmdline-tools.zip -d "$SDK/cmdline-tools"
+            mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+            CAND="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          echo "找到 sdkmanager: $CAND"
+          # job 日志要鉴权才能下载，而 check-run 注解可以匿名读——所以关键信息用警告发出去
+          echo "::warning::sdkmanager=$CAND"
+          echo "$(dirname "$CAND")" >> "$GITHUB_PATH"
+
+      - name: 安装本工程需要的 Android SDK 组件
+        # compileSdk 37 由 Compose BOM 2026.09 的下限决定（见 ADR-0003 决策 3），
+        # 所以 android-37.0 必须显式安装，不能指望镜像里恰好有。
+        # 上一行对 $GITHUB_PATH 的追加要到**后续步骤**才生效，所以这里必须分成两步。
+        run: |
+          set -euo pipefail
           sdkmanager --version
           yes | sdkmanager --licenses > /dev/null
           sdkmanager --install "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/android-sdk}}"
           echo "--- 已安装的平台 ---"
-          ls "${ANDROID_HOME:-${ANDROID_SDK_ROOT}}/platforms"
+          ls "$SDK/platforms"
 
       - name: 确保 gradlew 可执行
         # 本工程在 Windows 上开发，Git 里的执行位随时可能被重新加回文件时丢掉
