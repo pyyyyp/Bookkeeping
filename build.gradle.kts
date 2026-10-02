@@ -15,6 +15,9 @@ plugins {
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.hilt) apply false
+    // detekt 由 jizhangbao.architecture 插件统一应用到各模块（T-006）。
+    // 这里声明（apply false）是为了把它的实现放上插件类路径。
+    alias(libs.plugins.detekt) apply false
 
     // 本插件**要应用**（没有 apply false）：它是全工程聚合校验任务的定义处。
     // 它注册 verifyDomainPurity / checkModuleDependencies，并把它们接入每个模块的 check。

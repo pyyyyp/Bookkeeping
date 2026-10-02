@@ -33,13 +33,21 @@ value class Money private constructor(val cents: Long) : Comparable<Money> {
 
     /** 展示用格式。刻意不用浮点，避免 `105 分` 显示成 `1.0499999` */
     override fun toString(): String =
-        "¥${cents / 100}.${(cents % 100).toString().padStart(2, '0')}"
+        "¥${cents / CENTS_PER_YUAN}.${(cents % CENTS_PER_YUAN).toString().padStart(2, '0')}"
 
     companion object {
+        /**
+         * 一元 = 100 分。
+         *
+         * 它出现在格式化（除、取余）与构造（[ofYuan] 乘）两处共三次，
+         * 因此是具名常量而不是散落的字面量 —— 由 detekt 的 MagicNumber 规则发现（T-006）。
+         */
+        private const val CENTS_PER_YUAN = 100
+
         val ZERO: Money = Money(0)
 
         fun ofCents(cents: Long): Money = Money(cents)
 
-        fun ofYuan(yuan: Long): Money = Money(yuan * 100)
+        fun ofYuan(yuan: Long): Money = Money(yuan * CENTS_PER_YUAN)
     }
 }

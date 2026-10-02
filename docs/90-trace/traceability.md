@@ -66,7 +66,7 @@
 | 未决问题数 | 15（2 红 / 10 黄 / 3 绿） |
 | 已接受的 ADR 数 | 4 |
 | 限界上下文数 | 5（Ledger / Worklog / Payroll / Calendar / Insight） |
-| 工程任务数 | 5（T-001 / T-002 / T-003 完成；T-004 / T-005 待开始） |
+| 工程任务数 | 6（T-001 / T-002 / T-003 / T-006 完成；T-004 / T-005 待开始） |
 | 已建工程模块数 | **11**（1 个 Kotlin JVM + 9 个 Android Library + 1 个 Application） |
 | 领域层测试数 | 14（全绿，2026-10-02 强制重跑核实） |
 | Android 侧测试数 | **6**（全部是架构断言；尚无业务测试） |
@@ -83,6 +83,7 @@
 | T-003 | 架构规则的机器强制（校验任务与断言） | ✅ **已完成**（含 4 + 5 条反向验证） | 见本轮提交 |
 | T-004 | CI 流水线与追溯校验脚本 | ⏳ 待开始 | — |
 | T-005 | 开源配套（LICENSE / README / 隐私声明） | ⏳ 待开始 | — |
+| T-006 | 接入 detekt 静态分析（用户在 T-003 后追加的决定） | ✅ **已完成** | 见本轮提交 |
 
 **T-001 验收证据**：`:core:domain:build` BUILD SUCCESSFUL；
 14 个测试 0 失败；`compileClasspath` 中 Android 条目数为 **0**（R3 在依赖层面得证）。
@@ -113,7 +114,21 @@
   + 5 条 Konsist 断言违规**全部按预期失败**，每条都能指到文件与行号
 - **过程中修掉一个真实缺陷**：架构断言曾因 Gradle up-to-date 检查而**根本没跑**
   （`testDebugUnitTest UP-TO-DATE`，同时有 4 个违规文件存在）→ 已通过声明跨模块输入修复
-- **已知缺口**：`detekt` 在 AGP 9 内置 Kotlin 下**无可用版本**（待用户裁决）；R5 / R10 暂无靶子
+- **已知缺口（已由 T-006 关闭）**：`detekt` 在 AGP 9 内置 Kotlin 下无可用版本 → 用户裁决引入
+  `2.0.0-alpha.6`，见 `ADR-0004` 决策 4 与 T-006；R5 / R10 仍暂无靶子
+
+**T-006 验收证据（2026-10-02）**：
+
+- **用户裁决**：T-003 报告后，用户明确选择「引入 `dev.detekt:2.0.0-alpha.6`」→ 补记进 `ADR-0004` 决策 4
+- `./gradlew detekt` 全工程通过（**0 issues**），每个模块都执行（无源码的模块 `NO-SOURCE`）
+- 已接进 `check`（`check --dry-run` 列出全部 `:x:detekt`）→ `AGENTS.md` 阶段 E 的
+  **四项门禁现在全部可满足**（这是 T-006 存在的直接目的）
+- **反向验证**：注入 `MagicNumber` 违规 → `:core:common:detekt FAILED`，报错含
+  `文件:行:列 + 规则名`（`...TempDetektViolation.kt:4:26 ... [MagicNumber]`）→ 已还原
+- **首轮抓到一条真问题**（非误报）：`Money.kt` 的「一元 = 100 分」换算散在三处
+  → 提取为具名常量 `CENTS_PER_YUAN`；同时把 Compose 的 PascalCase 约定写成
+  有理由的配置偏离
+- 耗时：全工程首次 `detekt` 约 20 秒，增量约 1 秒；完整门禁 58 秒
 
 ## 校验（可选，建议接入 CI）
 

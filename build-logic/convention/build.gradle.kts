@@ -19,6 +19,8 @@ dependencies {
     // （root build.gradle.kts 里 `apply false` 的声明把它们放上了插件类路径）。
     // 约定插件只按 id 应用它们，编译期需要它们的类型。
     compileOnly(libs.android.gradle.plugin)
+    // detekt 的扩展类型（DetektExtension），用于在约定插件里统一配置（T-006）
+    compileOnly(libs.detekt.gradle.plugin)
 }
 
 gradlePlugin {

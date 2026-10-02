@@ -33,6 +33,13 @@ hilt = "2.60.1"
 # 已知代价：最后一次发布是 2024-12，对 Kotlin 2.4 语法没有前向兼容承诺（见 ADR-0004）。
 konsist = "0.17.3"
 
+# ── 静态分析（T-006）──
+# ⚠️ 只有 2.x 能在 AGP 9 内置 Kotlin 下为 Android 模块注册任务。1.23.8 的注册入口是
+# `plugins.withId("kotlin-android")`，而该插件在 AGP 9 下不存在也不能应用，
+# 于是它**静默地**什么都不做（构建照常成功，任务根本没被创建）。1.x 已 EOL。
+# 用户于 2026-10-02 明确批准采用这个**预发布**版本，接受三项代价（见 ADR-0004 决策 4）。
+detekt = "2.0.0-alpha.6"
+
 # ── 测试 ──
 junit4 = "4.13.2"
 
@@ -92,6 +99,7 @@ kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", v
 compose-compiler-gradle-plugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
 ksp-gradle-plugin = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "ksp" }
 hilt-gradle-plugin = { module = "com.google.dagger:hilt-android-gradle-plugin", version.ref = "hilt" }
+detekt-gradle-plugin = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
 
 [plugins]
 # ── 本项目自己的约定插件（来自 build-logic 这个 included build）──
@@ -111,3 +119,4 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+detekt = { id = "dev.detekt", version.ref = "detekt" }

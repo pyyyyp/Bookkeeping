@@ -166,8 +166,8 @@ dependencies {
 ## 常用命令
 
 ```bash
-# 提交前门禁（detekt 缺位的原因见 ADR-0004 决策 4）
-./gradlew assembleDebug lintDebug testDebugUnitTest
+# 提交前门禁（四项，AGENTS.md 阶段 E）
+./gradlew detekt lintDebug testDebugUnitTest assembleDebug
 
 # 架构规则（R2 / R3 / R7 / R8，零第三方依赖）
 ./gradlew verifyDomainPurity checkModuleDependencies
@@ -188,6 +188,7 @@ dependencies {
 `verifyDomainPurity` 与 `checkModuleDependencies` 是**零第三方依赖**的 Gradle 任务
 （实现在 `build-logic/convention/src/main/kotlin/.../`），由 `jizhangbao.architecture`
 插件注册在根项目上，并接入每个模块的 `check`——因此 `./gradlew build` 会自动执行它们。
+同一个插件还统一应用并配置 **detekt**（见下一节）。
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
@@ -208,6 +209,27 @@ BUILD SUCCESSFUL          ← 而当时正有 4 个架构违规文件躺在别�
 
 所以那段 `tasks.withType<Test> { inputs.files(...) }` **不是优化，是正确性所必需**，别删。
 排查口诀：**只要「校验任务」需要读它所属模块之外的文件，就必须显式声明这些输入。**
+
+## 静态分析：detekt（T-006）
+
+由 `jizhangbao.architecture` 插件统一应用到**所有**模块并接进 `check`，
+因此 `./gradlew build` 会自动执行。配置只有一处：`config/detekt/detekt.yml`。
+
+| 事项 | 现状 | 为什么 |
+|---|---|---|
+| 版本 | `dev.detekt:2.0.0-alpha.6`（**预发布**） | AGP 9 内置 Kotlin 下只有 2.x 能为 Android 模块注册任务；1.23.8 靠 `kotlin-android` 插件注册，在 AGP 9 下**静默失效**（见 `ADR-0004` 决策 4，用户已批准） |
+| 分析模式 | **light（不启用类型解析）** | 内置 Kotlin 下类型解析看不到生成类（`BuildConfig` / `R` / KSP 产物，上游 #9402 未修），启用会误报 |
+| 应用范围 | 所有模块，不做 `src/` 存在性过滤 | 过滤会让行为取决于**未入库的空目录**，本地与全新 clone 不一致；空模块报 `NO-SOURCE` 是可接受的代价 |
+| 配置偏离 | 只允许**有理由**的偏离 | 目前 1 条：Compose 的 `@Composable` 函数必须 PascalCase（官方约定），用 `ignoreAnnotated: ['Composable']` 豁免 |
+
+**首轮就抓到一条真问题**（不是误报）：`Money.kt` 里「一元 = 100 分」的换算散在三处，
+已提取为具名常量 `CENTS_PER_YUAN`。
+
+> 判断标准很简单：**默认规则在这里是对的就改代码，错的就改配置并写明理由**。
+> 为了让构建变绿而无理由地关规则，比不装 detekt 更糟——它给的是虚假的安全感。
+>
+> ⚠️ 已知的上游问题：Android 模块依赖普通 Kotlin/JVM 模块时会触发 Gradle 9.7+ 弃用告警
+> （上游 #9742），本项目正是这种结构（`:app` → `:core:domain`）。目前只是告警。
 
 ## Room 可用性验证（仓库外一次性工程）
 
