@@ -16,12 +16,40 @@
 | 组件 | 状态 | 位置 |
 |---|---|---|
 | JDK 21 (21.0.1 LTS) | ✅ 已装 | `D:\program files\java\jdk21` |
-| Gradle | ⚠️ 未全局安装，已下载到仓库 `.tools/`（**不入库**） | `.tools\gradle-9.8.0\` |
-| Android SDK | ❌ **未安装** | 无 `ANDROID_HOME` |
+| Gradle 9.8.0 | ✅ 已下载到仓库 `.tools/`（**不入库**） | `.tools\gradle-9.8.0\` |
+| Android SDK | ✅ 已装（**不入库**） | `.tools\android-sdk\` |
+| ├ cmdline-tools | ✅ build 14742923 | `cmdline-tools\latest\` |
+| ├ platform | ✅ | `platforms\android-36`（**最高只有 36**） |
+| ├ build-tools | ✅ | `build-tools\37.0.0` |
+| └ platform-tools (adb) | ✅ | `platform-tools\adb.exe` |
 | Android Studio | ❌ 未安装 | — |
 
-**当前能构建什么**：只有 `:core:domain`（纯 Kotlin JVM）。
-**当前不能构建什么**：任何 Android 模块——AGP 需要 Android SDK，见 T-002。
+> **build-tools 已到 37.0.0，但 platform 最高只有 android-36** → 因此 `compileSdk = 36`。
+> build-tools 版本通常由 AGP 自行决定，不必手动指定。
+
+## ⚠️ AGP 9.x 的两个破坏性变更（T-002 实测踩到）
+
+| 变更 | 症状 | 正确做法 |
+|---|---|---|
+| **内置 Kotlin 支持** | 加上 `org.jetbrains.kotlin.android` 插件后构建直接失败：<br>`The 'org.jetbrains.kotlin.android' plugin is no longer required for Kotlin support since AGP 9.0` | **移除该插件**。Android 模块只声明 `com.android.library` / `com.android.application`。见 [AGP built-in Kotlin](https://kotl.in/gradle/agp-built-in-kotlin) |
+| **路径非 ASCII 检查** | 仓库在 `D:\code\安卓相关`，AGP 在插件应用阶段直接拒绝应用 | 见 `ADR-0002`。当前用实验性开关 `android.overridePathCheck=true` 绕过，**建议迁移仓库到 ASCII 路径** |
+
+> **AGP 8 时代的所有构建模板都不能照抄** —— 这是 ADR-0001 中预设的风险，已实际发生。
+
+## SDK 路径配置：不要用 local.properties
+
+仓库路径含中文，而 Java 的 `.properties` 读取默认按 ISO-8859-1 处理，
+把中文路径写进 `local.properties` 会变成 `?`，Gradle 报 `Directory does not exist`。
+
+**当前做法：用环境变量。**
+
+```powershell
+$env:ANDROID_HOME     = "D:\code\安卓相关\.tools\android-sdk"
+$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
+```
+
+> 这是 `ADR-0002` 建议迁移仓库的实证之一：迁到 ASCII 路径后 `local.properties`
+> 即可恢复正常，与 Android Studio 的默认行为一致。
 
 ## 用本地 Gradle 构建（绕过 Wrapper 网络问题）
 

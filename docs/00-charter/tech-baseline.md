@@ -27,8 +27,8 @@
 | AGP | **9.4.0** | ✅ | [AGP 9.4.0 release notes](https://developer.android.google.cn/build/releases/agp-9-4-0-release-notes?hl=en)；2026-09 发布 |
 | Gradle | **9.8.0** | ✅ | 由 `services.gradle.org/versions/current` 解析所得，已实际下载并用于构建。Wrapper 已生成 |
 | JDK | **21**（本机 21.0.1 LTS） | ✅ | T-001 实测：Gradle 9.8.0 + Kotlin 2.4.20 + `jvmToolchain(21)` 构建通过 |
-| compileSdk | | ⬜ | 取 AGP 9.4.0 支持的稳定 API level |
-| targetSdk | | ⬜ | **受应用商店要求约束**，T-001 核实当年上架要求（取决于 Q-007 是否上架） |
+| compileSdk | **36** | ✅ | T-002 实测：SDK 中 platform 最高只有 `android-36`（build-tools 已到 37.0.0） |
+| targetSdk | | ⬜ | 本项目不上架（Q-007），取与 compileSdk 一致即可，T-002 第二档确认 |
 | minSdk | **26** | 🔸 建议 | Android 8.0。选它的理由：免去大量兼容分支；若 Q-002 采用地理围栏，26 起 `GeofencingClient` 行为一致。**若你的目标设备更旧，请提出** |
 | Compose BOM | | ⬜ | 核实 [Compose 发布说明](https://developer.android.google.cn/jetpack/androidx/releases/compose) |
 | Hilt | | ⬜ | 核实 [Hilt 发布说明](https://developer.android.google.cn/jetpack/androidx/releases/hilt) |
@@ -47,11 +47,12 @@
 AGP 从 8.x 跨到 9.x 是**大版本变更**，[官方有 DSL/API 迁移时间表](https://developer.android.google.cn/build/releases/gradle-plugin-roadmap)。
 风险与对策：
 
-| 风险 | 对策 |
-|---|---|
-| 大量构建脚本 DSL 已废弃或移除 | T-001 以 AGP 9.4.0 官方文档为准写构建脚本，**不照搬任何 AGP 8 时代的模板** |
-| 生态插件（Hilt/Konsist/detekt）可能尚未适配 9.x | T-001 逐个验证可用性；不兼容的降级并在 ADR 中记录 |
-| 「用最新」与「生态兼容」冲突 | **以能构建通过为准**。若某插件卡住，退回其支持的 AGP 版本并新增 ADR |
+| 风险 | 对策 | 当前状态 |
+|---|---|---|
+| 大量构建脚本 DSL 已废弃或移除 | T-001 以 AGP 9.4.0 官方文档为准写构建脚本，**不照搬任何 AGP 8 时代的模板** | ⚠️ **已实际发生**：`org.jetbrains.kotlin.android` 插件在 AGP 9.0 起不再需要，加上即构建失败 |
+| 生态插件（Hilt/Konsist/detekt）可能尚未适配 9.x | T-001 逐个验证可用性；不兼容的降级并在 ADR 中记录 | ⏳ 尚未引入，未验证 |
+| 「用最新」与「生态兼容」冲突 | **以能构建通过为准**。若某插件卡住，退回其支持的 AGP 版本并新增 ADR | — |
+| **仓库路径含非 ASCII 字符** | 见 `ADR-0002`（提议中） | ⚠️ 用实验性开关绕过，已产生 `local.properties` 编码故障 |
 
 > 我的建议：**AGP 取 9.x 最新，但若 T-001 发现关键插件不兼容，允许把 AGP 降到该插件支持的最高版本**——
 > 这属于「规则缺陷」而非「违规」，走 ADR 记录即可（见 AGENTS.md 第 4 节「发现违规时怎么办」）。
