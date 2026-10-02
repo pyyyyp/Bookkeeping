@@ -12,5 +12,8 @@
     <string name="insight_income_total">收入</string>
     <string name="insight_net_total">结余</string>
     <string name="insight_empty_month">这个月还没有记账。</string>
+    <!-- REQ-005：支出构成。占比各自四舍五入，加起来可能不是 100%（那是正确的） -->
+    <string name="insight_share_title">支出构成</string>
+    <string name="insight_share_empty">本月还没有支出。</string>
     <string name="insight_failure">合计暂时读不出来：本机数据库出错。</string>
 </resources>

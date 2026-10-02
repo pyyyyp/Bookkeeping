@@ -1,6 +1,7 @@
-# Insight 读模型（v0：本月收支合计）
+# Insight 读模型（v1：本月收支合计 + 分类占比）
 
-> 对应需求 `REQ-002`。本文件只写**模型**，配置与界面见任务卡 `T-009`。
+> 对应需求 `REQ-002`（合计）与 `REQ-005`（分类占比）。本文件只写**模型**，
+> 配置与界面见任务卡 `T-009` / `T-013`。
 
 ## 为什么 Insight 是「读模型」而不是聚合
 
@@ -54,14 +55,45 @@ value class SignedMoney private constructor(val cents: Long) {
 `SignedMoney.toString()` 的负号**必须**可见（`AC-2`）：`-¥70.00`。
 这是唯一一个"格式即语义"的地方——少一个负号，用户会把超支看成结余。
 
+### `CategoryAmount` 与 `CategoryBreakdown`（新增，**共享内核**，`REQ-005`）
+
+| 类型 | 字段 | 说明 |
+|---|---|---|
+| `CategoryAmount` | `categoryName: String`、`amount: Money` | 一个分类在该月的支出合计 |
+| `CategoryBreakdown` | `rows: List<CategoryAmount>`、`total: Money` | 若干行 + 支出合计；派生 `shareOf(row)` 给出 1 位小数的占比 |
+
+三件事值得写清楚：
+
+1. **为什么传"分类名"而不是 `CategoryId`**：Insight 是读模型，按 R2 它也看不见
+   Ledger 的分类模型（`CategoryId` 住在 `:feature:ledger`）。契约在内核里，
+   所以传的是**已经解析好的、给人看的名字**——名字由 Ledger 解析（`BR-7`），
+   包括**已归档**的分类（`BR-2`）。这也是 ACL 的老做法：把上游的模型翻译成下游要的形态。
+2. **占比是派生的，不是存下来的**：与 `MonthlyTotals.net` 同一个道理——
+   存了就可能与 `amount`/`total` 互相矛盾。
+3. **排序与"合计为 0"的规则也在这里**（`BR-4` `BR-6`）：金额降序、同额按名字；
+   空清单就是空清单。放在内核而不是 SQL 里，是因为这样**换数据源也成立**，
+   而且能纯 JVM 测（`REQ-005/AC-2` `AC-3` `AC-5`）。
+
+占比的算法（`BR-3`）：`percentTimes10 = round(amount × 1000 ÷ total)`，
+**各自四舍五入，不强行凑成 100%**。为了凑百必须改动某一类的数字，
+那比"三行各 33.3%，加起来 99.9%"糟得多。
+
 ## 端口（跨上下文的数据通路）
 
 ```kotlin
 // 住在 :core:domain（共享内核），不是 :feature:insight
 interface LedgerTotalsReader {
     suspend fun totalsIn(range: TimeRange): Outcome<MonthlyTotals>
+
+    /** REQ-005：该范围内按分类的支出合计（含**已归档**分类）。 */
+    suspend fun expensesByCategory(range: TimeRange): Outcome<CategoryBreakdown>
 }
 ```
+
+**为什么加方法而不是新开一个端口**：消费方只有一个、实现也只有一个
+（Ledger 的同一个实现类），而两者用的是同一个数据源与同一个时间范围口径。
+新开端口只会多一个接口、多一次 Hilt 绑定，换不来任何隔离——
+接口隔离的目的是"不同消费者要不同的东西"，这里不是。
 
 **为什么端口住内核**（决策记录见 `ADR-0008`）：
 
@@ -79,6 +111,7 @@ interface LedgerTotalsReader {
 | 用例 | 输入 | 输出 | 规则 |
 |---|---|---|---|
 | `LoadMonthlyTotalsUseCase` | `yearMonth: YearMonth`（默认由 `Clock` 推出的当月） | `Outcome<MonthlyTotals>` | 把月份换算成 `TimeRange`（本机时区、半开区间，`BR-1`），转交端口 |
+| `LoadCategoryShareUseCase`（`REQ-005`） | `yearMonth: YearMonth` | `Outcome<CategoryBreakdown>` | 同上，转交端口的 `expensesByCategory`；**口径与合计完全一致**（`BR-5`） |
 
 - 月份 → 时间范围的换算是**这一层唯一的实质逻辑**，也是唯一需要测试的地方：
   月初、月末、闰年 2 月、跨年（12 月 → 次年 1 月）。

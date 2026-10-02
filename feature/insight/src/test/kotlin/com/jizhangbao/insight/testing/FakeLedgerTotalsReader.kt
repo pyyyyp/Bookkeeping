@@ -1,5 +1,6 @@
 package com.jizhangbao.insight.testing
 
+import com.jizhangbao.core.domain.CategoryBreakdown
 import com.jizhangbao.core.domain.LedgerTotalsReader
 import com.jizhangbao.core.domain.MonthlyTotals
 import com.jizhangbao.core.domain.Outcome
@@ -16,10 +17,21 @@ internal class FakeLedgerTotalsReader : LedgerTotalsReader {
 
     var outcome: Outcome<MonthlyTotals> = Outcome.Ok(MonthlyTotals.ZERO)
 
+    /** `REQ-005`：分类占比的结果，测试按需指定。 */
+    var breakdownOutcome: Outcome<CategoryBreakdown> = Outcome.Ok(CategoryBreakdown.EMPTY)
+
     val requestedRanges = mutableListOf<TimeRange>()
+
+    /** 占比那次调用收到的范围。与 [requestedRanges] 分开记：两者必须**同一个范围**（`BR-5`）。 */
+    val requestedBreakdownRanges = mutableListOf<TimeRange>()
 
     override suspend fun totalsIn(range: TimeRange): Outcome<MonthlyTotals> {
         requestedRanges += range
         return outcome
+    }
+
+    override suspend fun expensesByCategory(range: TimeRange): Outcome<CategoryBreakdown> {
+        requestedBreakdownRanges += range
+        return breakdownOutcome
     }
 }

@@ -1,5 +1,6 @@
 package com.jizhangbao.insight.presentation
 
+import com.jizhangbao.core.domain.CategoryBreakdown
 import com.jizhangbao.core.domain.MonthlyTotals
 import java.time.Clock
 import java.time.YearMonth
@@ -26,6 +27,14 @@ internal data class MonthlyTotalsUiState(
      * 所以当月时「下一月」是禁用的——**不是**点了没反应，而是明确禁用。
      */
     val canGoToNextMonth: Boolean,
+    /**
+     * 该月支出按分类的占比（`REQ-005`）。
+     *
+     * 与 [totals] 放在**同一个状态**里是刻意的：两者必须来自同一次刷新、同一个月，
+     * 否则会出现"合计是 10 月的、占比是 9 月的"这种同屏矛盾（`AC-7`）。
+     * 加载完成前是 [CategoryBreakdown.EMPTY]。
+     */
+    val breakdown: CategoryBreakdown,
 ) {
 
     val canGoToPreviousMonth: Boolean get() = true
@@ -45,6 +54,7 @@ internal data class MonthlyTotalsUiState(
                 isLoading = true,
                 hasFailure = false,
                 canGoToNextMonth = false,
+                breakdown = CategoryBreakdown.EMPTY,
             )
         }
     }

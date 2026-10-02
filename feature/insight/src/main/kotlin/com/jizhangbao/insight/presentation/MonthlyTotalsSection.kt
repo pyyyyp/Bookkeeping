@@ -96,6 +96,13 @@ internal fun MonthlyTotalsSection(
 
         TotalsRow(state.totals)
 
+        // REQ-005：支出构成。这个月有活动时才显示 ——
+        // 整月都没有记账时，下面的「这个月还没有记账」已经把话说清楚了，
+        // 再叠一句"本月还没有支出"只是噪音
+        if (state.totals != MonthlyTotals.ZERO && !state.isLoading) {
+            CategoryShareList(breakdown = state.breakdown)
+        }
+
         if (state.totals == MonthlyTotals.ZERO && !state.isLoading) {
             // AC-3：零要么是"这个月还没记账"，要么是"读不出来"——两者必须分开说
             Text(

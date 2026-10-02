@@ -30,6 +30,7 @@ class LoadCategoriesUseCase @Inject constructor(
     suspend operator fun invoke(): Outcome<List<Category>> =
         when (val custom = repository.all()) {
             is Outcome.Err -> custom
-            is Outcome.Ok -> Outcome.Ok(CategoryCatalog.PRESET.all() + custom.value)
+            // 合并规则住在 CategoryCatalog.mergedWith：与占比里的名字解析共用同一处
+            is Outcome.Ok -> Outcome.Ok(CategoryCatalog.PRESET.mergedWith(custom.value))
         }
 }
