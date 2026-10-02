@@ -137,12 +137,13 @@ $env:ANDROID_HOME = "<repo>\.tools\android-sdk"
 ## 模块骨架与约定插件
 
 构建约定集中在 **`build-logic/`**（一个 Gradle included build），
-它只导出两个约定插件，全工程 10 个 Android 模块都靠它们，改配置只改一处：
+它导出**三个**约定插件，全工程 10 个 Android 模块都靠它们，改配置只改一处：
 
 | 约定插件 id | 作用 | 使用它的模块 |
 |---|---|---|
 | `jizhangbao.android.library` | 设 compileSdk 37（minor 0）/ minSdk 26 / Java 21 | `core:common` `core:ui` `core:data` `core:testing` 及 5 个 `feature:*` |
 | `jizhangbao.android.application` | 上面全部 + targetSdk 36 + versionCode/versionName | `:app` |
+| `jizhangbao.architecture` | 注册 `verifyDomainPurity` / `checkModuleDependencies`，并接入每个模块的 `check` | **根项目**（唯一） |
 
 ```kotlin
 // 因此一个 feature 模块的完整构建脚本只有 3 行（如 feature/ledger/build.gradle.kts）
@@ -165,11 +166,13 @@ dependencies {
 ## 常用命令
 
 ```bash
-# 提交前门禁
+# 提交前门禁（detekt 缺位的原因见 ADR-0004 决策 4）
 ./gradlew assembleDebug lintDebug testDebugUnitTest
 
-# 架构规则（T-003 建立，尚未可用）
+# 架构规则（R2 / R3 / R7 / R8，零第三方依赖）
 ./gradlew verifyDomainPurity checkModuleDependencies
+# 架构规则（R2 / R5 / R6 / R8 / R10，Konsist 源码断言）
+./gradlew :core:testing:testDebugUnitTest
 
 # 单模块
 ./gradlew :app:assembleDebug
@@ -179,6 +182,32 @@ dependencies {
 # 核实「生效的 Kotlin 是不是 2.4.20」（应看到 kotlin-gradle-plugin:2.2.10 -> 2.4.20）
 ./gradlew buildEnvironment
 ```
+
+## 架构校验：两条任务 + 一组源码断言
+
+`verifyDomainPurity` 与 `checkModuleDependencies` 是**零第三方依赖**的 Gradle 任务
+（实现在 `build-logic/convention/src/main/kotlin/.../`），由 `jizhangbao.architecture`
+插件注册在根项目上，并接入每个模块的 `check`——因此 `./gradlew build` 会自动执行它们。
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| `verifyDomainPurity` 报「扫描到的 domain 源文件数为 0」 | 扫描规则失效（比如 `domain` 包改名、模块布局变化），**不是**「项目里没有 domain 代码」 | 修 `ArchitectureVerificationPlugin.domainSourceTrees()` 的规则。这条守卫就是**故意**让「扫不到」变成失败——把空扫描当成通过等于给架构一个假绿灯 |
+| `checkModuleDependencies` 报某模块「依赖自己」 | AGP 会给测试变体的**可解析**配置加一条自引用依赖 | 已处理：只收集「声明桶」配置（`!canBeResolved && !canBeConsumed`）并显式剔除自引用边 |
+| 往 `:core:domain` 的 dependencies 里加 androidx 没被发现 | 只改了依赖、还没 import，源码扫描看不见 | 已由 `checkModuleDependencies` 的 **R3 依赖面**覆盖 |
+
+### ⚠️ 一个会静默吃掉架构断言的陷阱（实测踩过）
+
+`ArchitectureTest` 扫描的是**别的模块**的源码，那些文件不在 `:core:testing` 的任何 source set 里。
+**如果不在 `core/testing/build.gradle.kts` 里把它们声明成该测试任务的输入**，
+Gradle 会认为输入没变：
+
+```
+> Task :core:testing:testDebugUnitTest UP-TO-DATE
+BUILD SUCCESSFUL          ← 而当时正有 4 个架构违规文件躺在别的模块里
+```
+
+所以那段 `tasks.withType<Test> { inputs.files(...) }` **不是优化，是正确性所必需**，别删。
+排查口诀：**只要「校验任务」需要读它所属模块之外的文件，就必须显式声明这些输入。**
 
 ## Room 可用性验证（仓库外一次性工程）
 
