@@ -4,6 +4,7 @@ import com.jizhangbao.core.domain.Outcome
 import com.jizhangbao.ledger.domain.error.LedgerError
 import com.jizhangbao.ledger.domain.model.LedgerEntry
 import com.jizhangbao.ledger.domain.model.LedgerEntryId
+import com.jizhangbao.ledger.domain.model.RecentEntries
 import com.jizhangbao.ledger.domain.repository.LedgerEntryRepository
 
 /**
@@ -25,7 +26,7 @@ internal class FakeLedgerEntryRepository : LedgerEntryRepository {
     var addOutcome: Outcome<Unit> = Outcome.Ok(Unit)
 
     /** 非 null 时 `recent` 直接返回它，用于制造失败场景。 */
-    var recentOutcome: Outcome<List<LedgerEntry>>? = null
+    var recentOutcome: Outcome<RecentEntries>? = null
 
     /** 非 null 时 `remove` 直接返回它，用于制造失败场景。 */
     var removeOutcome: Outcome<Unit>? = null
@@ -70,8 +71,8 @@ internal class FakeLedgerEntryRepository : LedgerEntryRepository {
         return if (removed) Outcome.Ok(Unit) else Outcome.Err(LedgerError.EntryNotFound)
     }
 
-    override suspend fun recent(limit: Int): Outcome<List<LedgerEntry>> =
-        recentOutcome ?: Outcome.Ok(entries.take(limit))
+    override suspend fun recent(limit: Int): Outcome<RecentEntries> =
+        recentOutcome ?: Outcome.Ok(RecentEntries.of(entries.take(limit)))
 
     /** 已经真的存进去的条目（`add` 失败时不会出现在这里）。 */
     fun stored(): List<LedgerEntry> = entries.toList()

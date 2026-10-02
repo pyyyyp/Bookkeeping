@@ -11,6 +11,7 @@ import com.jizhangbao.ledger.domain.model.LedgerEntry
 import com.jizhangbao.ledger.domain.model.LedgerEntryId
 import com.jizhangbao.ledger.domain.model.Note
 import com.jizhangbao.ledger.testing.FakeLedgerEntryDao
+import com.jizhangbao.ledger.testing.RecordingLogger
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -27,7 +28,8 @@ import kotlin.coroutines.cancellation.CancellationException
 class LedgerEntryRepositoryImplTest {
 
     private val dao = FakeLedgerEntryDao()
-    private val repository = LedgerEntryRepositoryImpl(dao)
+    private val logger = RecordingLogger()
+    private val repository = LedgerEntryRepositoryImpl(dao, logger)
 
     private val occurredAt: Instant = Instant.parse("2026-10-01T08:30:00Z")
     private val bookedAt: Instant = Instant.parse("2026-10-02T12:00:00Z")
@@ -88,7 +90,7 @@ class LedgerEntryRepositoryImplTest {
 
         val result = repository.recent(limit = 10)
 
-        val restored = (result as Outcome.Ok).value.single()
+        val restored = (result as Outcome.Ok).value.entries.single()
         assertEquals(EntryDirection.Income, restored.direction)
         assertEquals(Money.ofCents(800_000), restored.amount)
         assertEquals(CategoryId("salary"), restored.categoryId)
@@ -131,4 +133,69 @@ class LedgerEntryRepositoryImplTest {
 
         assertTrue(thrown is CancellationException)
     }
+
+    @Test
+    fun `一条坏数据不会让整张列表消失_其余照常返回并如实计数`() = runBlocking {
+        dao.recentRows = listOf(
+            row(id = "11111111-2222-3333-4444-555555555555", amountCents = 100),
+            // id 不是合法 UUID —— 域校验会拒绝它（T-013 冒烟时真实发生过）
+            row(id = "seed-pet", amountCents = 200),
+            row(id = "66666666-7777-8888-9999-000000000000", amountCents = 300),
+        )
+
+        val result = repository.recent(limit = 10)
+
+        val entries = (result as Outcome.Ok).value
+        // REQ-006/AC-3：两条照常显示、一条被跳过且**计数**（不是静默丢弃，也不是整批失败）
+        assertEquals(2, entries.entries.size)
+        assertEquals(1, entries.unreadable)
+        assertTrue(entries.hasUnreadable)
+    }
+
+    @Test
+    fun `全部读得出来时计数为零且不记日志`() = runBlocking {
+        dao.recentRows = listOf(row(id = "11111111-2222-3333-4444-555555555555", amountCents = 100))
+
+        val entries = (repository.recent(limit = 10) as Outcome.Ok).value
+
+        assertEquals(1, entries.entries.size)
+        assertEquals(0, entries.unreadable)
+        assertTrue(logger.warnings.isEmpty())
+    }
+
+    @Test
+    fun `跳过坏行时记一条日志_原因在里面而金额与标识不在`() = runBlocking {
+        dao.recentRows = listOf(row(id = "seed-pet", amountCents = 200))
+
+        repository.recent(limit = 10)
+
+        // REQ-006/AC-1：原因被记下来（异常对象本身）
+        val logged = logger.warnings.single()
+        assertTrue(logged.first.contains("1 条"))
+        assertTrue(logged.second is IllegalArgumentException)
+        // BR-2：不记 PII —— 金额与这条数据的标识都不该出现
+        assertTrue(!logged.first.contains("200"))
+        assertTrue(!logged.first.contains("seed-pet"))
+    }
+
+    @Test
+    fun `写失败时也会记录原因`() = runBlocking {
+        dao.failure = IllegalStateException("disk full")
+
+        repository.add(entry())
+
+        val logged = logger.warnings.single()
+        assertTrue(logged.first.contains("写入一条账目"))
+        assertTrue(logged.second is IllegalStateException)
+    }
+
+    private fun row(id: String, amountCents: Long) = LedgerEntryEntity(
+        id = id,
+        direction = "Expense",
+        amountCents = amountCents,
+        categoryId = "food",
+        occurredAtEpochMilli = occurredAt.toEpochMilli(),
+        bookedAtEpochMilli = bookedAt.toEpochMilli(),
+        note = null,
+    )
 }

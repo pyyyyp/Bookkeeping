@@ -295,8 +295,16 @@ internal class LedgerViewModel @Inject constructor(
     private fun refreshEntries() {
         viewModelScope.launch {
             when (val result = loadEntries()) {
-                is Outcome.Ok -> _uiState.update { it.copy(entries = result.value) }
-                is Outcome.Err -> _uiState.update { it.copy(failure = SaveFailure.Storage) }
+                is Outcome.Ok -> _uiState.update {
+                    it.copy(
+                        entries = result.value.entries,
+                        // 跳过了几条读不出来的行 —— 要一路传到界面去说（REQ-006/AC-3）
+                        unreadableEntries = result.value.unreadable,
+                    )
+                }
+                // REQ-006/AC-2：读失败要说读的事。原来的文案是"保存失败…这笔没有记上"，
+                // 方向说错了 —— 用户会去排查自己刚才那次保存
+                is Outcome.Err -> _uiState.update { it.copy(failure = SaveFailure.LoadFailed) }
             }
         }
     }

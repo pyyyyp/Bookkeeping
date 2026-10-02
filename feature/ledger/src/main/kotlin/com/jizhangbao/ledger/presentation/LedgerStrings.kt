@@ -26,6 +26,8 @@ internal fun AmountInputError.messageRes(): Int = when (this) {
 internal fun SaveFailure.messageRes(): Int = when (this) {
     SaveFailure.NoteTooLong -> R.string.ledger_error_note_too_long
     SaveFailure.Storage -> R.string.ledger_error_storage
+    // REQ-006/AC-2：读失败说读的事，不说"这笔没有记上"
+    SaveFailure.LoadFailed -> R.string.ledger_error_load_failed
     is SaveFailure.Rejected -> when (error) {
         LedgerError.CategoryRequired -> R.string.ledger_error_category_required
         LedgerError.AmountNotPositive -> R.string.ledger_error_amount_not_positive

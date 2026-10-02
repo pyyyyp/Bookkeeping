@@ -156,6 +156,8 @@ internal fun LedgerScreen(
                 onDelete = onDeleteRequested,
                 // 名字由状态解析：含用户自建与已归档的分类
                 nameOf = state::categoryName,
+                // REQ-006/AC-3：跳过了几条读不出来的行，界面上要说出来
+                unreadableEntries = state.unreadableEntries,
             )
         }
     }

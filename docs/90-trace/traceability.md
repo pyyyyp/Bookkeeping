@@ -52,6 +52,9 @@
 | REQ-005 | AC-6 跨月补记的条目不会进本月清单 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | `LedgerExpensesByCategoryTest`（9-30 的与正好等于 `end` 的都不进；半开区间 `[start, end)`） | ✅ |
 | REQ-005 | AC-7 翻月时清单与合计一起变 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | **自动化**：`LoadCategoryShareUseCaseTest` 断言同一月份下两者从端口拿到的 `TimeRange` **相等**；`MonthlyTotalsViewModelTest` 断言翻月后两者收到同一个新区间。**真机冒烟**：点「上一月」→ 合计与占比区同时变化（占比区整块消失、没留旧数据）→ 点「下一月」一起回来 | ✅ |
 | REQ-005 | AC-8 收入不进入占比清单 | Insight | 无聚合（读模型） | T-013 | 见本轮提交 | `LedgerExpensesByCategoryTest`（一笔 8000 的收入 → 清单为空，分母只是支出）+ 端口的 `expensesByCategory` 固定按 `Expense` 查 | ✅ |
+| REQ-006 | AC-1 失败原因被记录在日志里（且不含 PII） | Ledger | 无聚合（改的是失败路径） | T-015 | 见本轮提交 | `LedgerEntryRepositoryImplTest`（`RecordingLogger` 断言：写失败与坏行都记了 warn，**异常对象在里面**；且日志里**没有**金额与标识 —— `BR-2`）。⚠️ 真机 logcat 里我没抓到那条 warn（我的 grep 没命中），所以这一条的**真机侧未验证**，只有 fake 侧的断言 | ✅ |
+| REQ-006 | AC-2 读取失败与保存失败的提示不一样 | Ledger | 无聚合 | T-015 | 见本轮提交 | 新增 `SaveFailure.LoadFailed` 与文案「账目暂时读不出来：本机数据库出错」，`refreshEntries` 的失败分支改用它（此前复用"保存失败…这笔没有记上"，方向说错了）。`LedgerStrings` 的映射是穷尽 `when`，漏一个分支编译不过 | ✅ |
+| REQ-006 | AC-3 一条读不出来的数据不会让整张列表消失 | Ledger | `RecentEntries`（读模型） | T-015 | 见本轮提交 | **真机冒烟**：App **停止**后用 `sqlite3` 插一条 id 非 UUID 的脏数据（5 条中 1 条坏）→ 启动后**其余 4 条照常显示**，并显示「有 1 条记录读不出来（数据可能被外部改坏），已跳过；它们仍计入合计。」；合计 `¥40168.45` = 40045 + 123.45，**脏行金额仍计入**（`BR-5`）。自动化：`LedgerEntryRepositoryImplTest`（跳过+计数+日志）、`LoadRecentEntriesUseCaseTest`（计数一路传出） | ✅ |
 
 **状态图例**：✅ 已完成 / 🚧 进行中 / ⏳ 待开始 / ❌ 已废弃
 
@@ -107,12 +110,12 @@
 
 | 指标 | 数值 |
 |---|---|
-| 需求总数 | **5**（`REQ-001` 记账；`REQ-002` 本月合计；`REQ-003` 编辑条目；`REQ-004` 自定义分类；`REQ-005` 分类占比） |
-| 已完成的 AC 数 | **42 / 42**（`REQ-005` 的 8 条已实现并有单元测试；`AC-1` `AC-4` 还缺真机冒烟） |
+| 需求总数 | **6**（`REQ-001` 记账；`REQ-002` 本月合计；`REQ-003` 编辑条目；`REQ-004` 自定义分类；`REQ-005` 分类占比；`REQ-006` 出问题时看得见） |
+| 已完成的 AC 数 | **45 / 45**（`REQ-001` ~ `REQ-006` 全部有提交与测试证据） |
 | 未决问题数 | 15（2 红 / 10 黄 / 3 绿；`Q-005` 已关闭，本轮新增 `Q-021`） |
-| 已接受的 ADR 数 | **9**（ADR-0006 跨模块错误类型、ADR-0007 数据层归属、ADR-0008 跨上下文读模型、ADR-0009 分类生命周期） |
+| 已接受的 ADR 数 | **10**（ADR-0006 ~ ADR-0010：错误类型 / 数据层归属 / 跨上下文读模型 / 分类生命周期 / 日志） |
 | 限界上下文数 | 5（Ledger / Worklog / Payroll / Calendar / Insight） |
-| 工程任务数 | 13（**T-001 ~ T-012 全部完成**；T-013 待实现） |
+| 工程任务数 | 15（**T-001 ~ T-015 全部完成**） |
 | 已建工程模块数 | **11**（1 个 Kotlin JVM + 9 个 Android Library + 1 个 Application） |
 | 领域层测试数 | **25**（全绿；`T-009` 第一段新增 `SignedMoney` 6 条 + `MonthlyTotals` 5 条） |
 | Android 侧测试数 | **157**（JVM 全绿；其中 6 条是 Konsist 架构断言）+ **9** 条仪器化 DAO 测试（真库，经 `am instrument` 运行） |
