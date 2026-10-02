@@ -25,6 +25,13 @@
     <string name="ledger_delete_message">删除后无法恢复。</string>
     <string name="ledger_entry_deleted">已删除，这条记录不在账本里了。</string>
 
+    <!-- 编辑（REQ-003）：身份与录入时间不变，所以文案说的是"修改这条"，不是"另存一条" -->
+    <string name="ledger_edit">编辑</string>
+    <string name="ledger_editing">正在修改这条记录</string>
+    <string name="ledger_save_edit">保存修改</string>
+    <string name="ledger_edit_cancel">取消编辑</string>
+    <string name="ledger_error_entry_not_found">这条记录已经不在了（可能已被删除）</string>
+
     <string name="ledger_error_amount_empty">请输入金额</string>
     <string name="ledger_error_amount_not_a_number">金额只能是数字</string>
     <string name="ledger_error_amount_too_many_decimals">金额最多两位小数</string>

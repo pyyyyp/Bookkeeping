@@ -76,6 +76,8 @@ internal fun LedgerRoute(
         onOccurredAtChange = viewModel::onOccurredAtChange,
         onNoteChange = viewModel::onNoteChange,
         onSave = viewModel::onSave,
+        onEditRequested = viewModel::onEditRequested,
+        onEditCancel = viewModel::onEditCancelled,
         onDeleteRequested = viewModel::onDeleteRequested,
         onDeleteConfirmed = viewModel::onDeleteConfirmed,
         onDeleteCancelled = viewModel::onDeleteCancelled,
@@ -99,6 +101,8 @@ internal fun LedgerScreen(
     onOccurredAtChange: (Instant) -> Unit,
     onNoteChange: (String) -> Unit,
     onSave: () -> Unit,
+    onEditRequested: (com.jizhangbao.ledger.domain.model.LedgerEntry) -> Unit,
+    onEditCancel: () -> Unit,
     onDeleteRequested: (com.jizhangbao.ledger.domain.model.LedgerEntry) -> Unit,
     onDeleteConfirmed: () -> Unit,
     onDeleteCancelled: () -> Unit,
@@ -128,6 +132,7 @@ internal fun LedgerScreen(
                 onDateClick = { showDatePicker = true },
                 onNoteChange = onNoteChange,
                 onSave = onSave,
+                onEditCancel = onEditCancel,
             )
 
             HorizontalDivider()
@@ -136,6 +141,7 @@ internal fun LedgerScreen(
                 entries = state.entries,
                 zone = zone,
                 showDeletedNotice = state.deletedNotice,
+                onEdit = onEditRequested,
                 onDelete = onDeleteRequested,
             )
         }

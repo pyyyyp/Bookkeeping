@@ -46,6 +46,13 @@ internal data class LedgerUiState(
      * 而"状态里多一个计数器"是可观察、可断言、可回放的。
      */
     val entriesRevision: Int,
+    /**
+     * 正在编辑的那一条；`null` 表示表单处于「记一笔」状态（`REQ-003`）。
+     *
+     * 存**整条**而不是只存 id：`revise` 需要原条目作目标（它的身份与录入时间要保留），
+     * 而只存 id 就得再去仓储里找一遍——那会让"编辑"多一次查询，也多一处可能找不到。
+     */
+    val editing: LedgerEntry?,
 ) {
 
     /** 当前方向下可选的分类（预置清单已按方向过滤）。 */
@@ -70,6 +77,7 @@ internal data class LedgerUiState(
             pendingDelete = null,
             deletedNotice = false,
             entriesRevision = 0,
+            editing = null,
         )
     }
 }

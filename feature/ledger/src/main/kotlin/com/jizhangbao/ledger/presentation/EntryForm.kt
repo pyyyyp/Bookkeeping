@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -42,8 +43,17 @@ internal fun EntryForm(
     onDateClick: () -> Unit,
     onNoteChange: (String) -> Unit,
     onSave: () -> Unit,
+    onEditCancel: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (state.editing != null) {
+            // 编辑态要说出来：否则用户以为在记新账，改了之后发现"旧的那条不见了"
+            Text(
+                text = stringResource(R.string.ledger_editing),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+
         AmountField(state = state, onAmountChange = onAmountChange)
 
         DirectionChips(selected = state.direction, onDirectionChange = onDirectionChange)
@@ -78,7 +88,20 @@ internal fun EntryForm(
             enabled = state.canPressSave,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(stringResource(if (state.isSaving) R.string.ledger_saving else R.string.ledger_save))
+            val label = when {
+                state.isSaving -> R.string.ledger_saving
+                // 编辑态用"保存修改"：与"记一笔"区分开，用户才知道按下去会发生什么
+                state.editing != null -> R.string.ledger_save_edit
+                else -> R.string.ledger_save
+            }
+            Text(stringResource(label))
+        }
+
+        if (state.editing != null) {
+            // 取消编辑（AC-6）：只退出编辑态，不动数据
+            TextButton(onClick = onEditCancel, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.ledger_edit_cancel))
+            }
         }
     }
 }

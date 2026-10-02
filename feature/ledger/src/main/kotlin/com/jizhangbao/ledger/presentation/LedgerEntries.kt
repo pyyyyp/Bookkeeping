@@ -35,6 +35,7 @@ internal fun EntriesSection(
     entries: List<LedgerEntry>,
     zone: ZoneId,
     showDeletedNotice: Boolean,
+    onEdit: (LedgerEntry) -> Unit,
     onDelete: (LedgerEntry) -> Unit,
 ) {
     Text(
@@ -59,14 +60,24 @@ internal fun EntriesSection(
     } else {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(items = entries, key = { it.id.value }) { entry ->
-                EntryRow(entry = entry, zone = zone, onDelete = { onDelete(entry) })
+                EntryRow(
+                    entry = entry,
+                    zone = zone,
+                    onEdit = { onEdit(entry) },
+                    onDelete = { onDelete(entry) },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun EntryRow(entry: LedgerEntry, zone: ZoneId, onDelete: () -> Unit) {
+private fun EntryRow(
+    entry: LedgerEntry,
+    zone: ZoneId,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -82,6 +93,9 @@ private fun EntryRow(entry: LedgerEntry, zone: ZoneId, onDelete: () -> Unit) {
                     entry.occurredAt.atZone(zone).toLocalDate().format(DATE_FORMAT),
                 style = MaterialTheme.typography.bodyMedium,
             )
+            TextButton(onClick = onEdit) {
+                Text(stringResource(R.string.ledger_edit))
+            }
             TextButton(onClick = onDelete) {
                 Text(stringResource(R.string.ledger_delete))
             }
