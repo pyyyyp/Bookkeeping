@@ -100,10 +100,12 @@ class CategoryRepositoryImplTest {
         repository.add(category(id = "custom-pet"))
 
         val found = (repository.byId(CategoryId("custom-pet")) as Outcome.Ok).value
-        val missing = (repository.byId(CategoryId("nope")) as Outcome.Ok).value
+        val missing = repository.byId(CategoryId("nope"))
 
-        assertEquals("宠物", found?.displayName)
-        assertEquals(null, missing)
+        assertEquals("宠物", found.displayName)
+        // 不存在是**领域结果**，不是存储故障，也不是 Ok(null)：
+        // 否则每个调用方都要各写一遍判空
+        assertEquals(LedgerError.CategoryNotFound, (missing as Outcome.Err).error)
     }
 
     @Test

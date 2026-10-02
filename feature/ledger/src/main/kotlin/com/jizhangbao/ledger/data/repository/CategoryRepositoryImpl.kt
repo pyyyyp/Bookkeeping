@@ -44,8 +44,17 @@ internal class CategoryRepositoryImpl @Inject constructor(
     override suspend fun all(): Outcome<List<Category>> =
         storageOutcome { dao.all().map(CategoryMapper::toDomain) }
 
-    override suspend fun byId(id: CategoryId): Outcome<Category?> =
-        storageOutcome { dao.byId(id.value)?.let(CategoryMapper::toDomain) }
+    override suspend fun byId(id: CategoryId): Outcome<Category> {
+        val found = storageOutcome { dao.byId(id.value) }
+
+        return when (found) {
+            is Outcome.Err -> found
+            // 查不到 = 领域上的「没找到」，不是存储故障
+            is Outcome.Ok -> found.value
+                ?.let { Outcome.Ok(CategoryMapper.toDomain(it)) }
+                ?: Outcome.Err(LedgerError.CategoryNotFound)
+        }
+    }
 
     private suspend fun <T> storageOutcome(block: suspend () -> T): Outcome<T> =
         runCatching { block() }.fold(

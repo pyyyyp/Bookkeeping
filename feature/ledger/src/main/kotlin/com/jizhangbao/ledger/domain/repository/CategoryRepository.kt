@@ -29,5 +29,12 @@ interface CategoryRepository {
     /** 全部自定义分类（**含已归档**：历史条目的名字解析需要它们）。 */
     suspend fun all(): Outcome<List<Category>>
 
-    suspend fun byId(id: CategoryId): Outcome<Category?>
+    /**
+     * 按标识取一个分类。
+     *
+     * 不存在时返回 [com.jizhangbao.ledger.domain.error.LedgerError.CategoryNotFound]，
+     * 而**不是** `Outcome<Category?>`：那会把"找不到"和"读失败"混在一个可空类型里，
+     * 每个调用方都要各写一遍判空。不存在是一种领域结果，交给 `Outcome` 表达。
+     */
+    suspend fun byId(id: CategoryId): Outcome<Category>
 }
