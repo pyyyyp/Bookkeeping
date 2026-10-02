@@ -18,7 +18,8 @@ import java.time.Instant
  * 那时需要重新裁决聚合边界并新增 ADR（见 `ADR-0005`）。
  *
  * ⚠️ 刻意**不是** `data class`：`copy()` 会绕过 `init` 里的不变式。
- * 相等性按**标识**判断 —— 实体的语义是「同一个标识就是同一条记录」。
+ * 相等性按**全部字段**判断（理由见下面的 `equals`：
+ * 不可变对象若只按标识相等，"改过的那条"会等于"改之前的它"，状态差分就会丢更新）。
  *
  * 见 `docs/20-domain/ledger-model.md`。
  */
@@ -37,14 +38,83 @@ class LedgerEntry private constructor(
         require(amount > Money.ZERO) { "INV-1：条目金额必须大于 0，实际为 $amount" }
     }
 
+    /**
+     * 按**全部字段**相等，而不是只按标识。
+     *
+     * ## 为什么不是"实体 = 标识相等"
+     *
+     * 教科书说实体按标识判断相等，那在**可变**实体上是对的：
+     * 一个对象被改了内容，它仍是同一条记录。但本类**不可变**（改内容会返回新实例），
+     * 于是"只比标识"会得出一个危险结论：**改过的那条与改之前的它相等**。
+     *
+     * 这个结论在真机上咬过一次（`T-011` 冒烟）：`MutableStateFlow` 认为
+     * 「同 id 的列表」与刷新后的列表相等 → **丢弃刷新结果** → 界面停在旧值上，
+     * 而数据库其实已经改了。合计用的是另一个字段（修订号），所以它更新了、
+     * 列表没更新——同一个屏幕上一半新一半旧。
+     *
+     * 不可变对象按值相等，是让"内容变了"处处可见的唯一可靠做法。
+     * 需要"是不是同一条记录"时，比较 [id]（那是显式的、不会被误用）。
+     */
     override fun equals(other: Any?): Boolean =
-        this === other || (other is LedgerEntry && other.id == id)
+        this === other || (
+            other is LedgerEntry &&
+                other.id == id &&
+                other.direction == direction &&
+                other.amount == amount &&
+                other.categoryId == categoryId &&
+                other.occurredAt == occurredAt &&
+                other.bookedAt == bookedAt &&
+                other.note == note
+            )
 
-    override fun hashCode(): Int = id.hashCode()
+    override fun hashCode(): Int {
+        var result = id.hashCode()
+        result = 31 * result + direction.hashCode()
+        result = 31 * result + amount.hashCode()
+        result = 31 * result + categoryId.hashCode()
+        result = 31 * result + occurredAt.hashCode()
+        result = 31 * result + bookedAt.hashCode()
+        result = 31 * result + (note?.hashCode() ?: 0)
+        return result
+    }
 
     override fun toString(): String =
         "LedgerEntry(${id.value}, $direction, $amount, ${categoryId.value}, " +
             "occurredAt=$occurredAt, bookedAt=$bookedAt, note=${note?.text})"
+
+    /**
+     * 用新的字段值**替换**这条记录（`REQ-003`）。
+     *
+     * ## 三个保持不变
+     *
+     * - **身份**（`id`）：它就是"同一条记录"。换 id 等于删一条加一条（`BR-4`）。
+     * - **录入时间**（`bookedAt`）：它回答"这笔什么时候被记进账本"，
+     *   那是已经发生的事实，不会因为后来改了内容而改变——否则它不再有信息量（`BR-3`）。
+     * - **不可变性**：返回**新实例**，本实例一字不动。所以"校验失败时原条目不变"
+     *   不是靠回滚，而是根本改不动（`AC-3`）。
+     *
+     * ## 可以改发生时间
+     *
+     * `BR-2` 已定案：这个功能最主要的用例就是"补记时日期选错"。
+     * v1 没有账户、没有结算周期，也就没有会把条目冻结的下游约束。
+     *
+     * 校验与 [record] 共用 [build] —— 两条路径各写一遍，迟早会漂移。
+     */
+    fun revise(
+        direction: EntryDirection,
+        amount: Money,
+        categoryId: CategoryId?,
+        occurredAt: Instant,
+        note: Note?,
+    ): Outcome<LedgerEntry> = build(
+        direction = direction,
+        amount = amount,
+        categoryId = categoryId,
+        occurredAt = occurredAt,
+        bookedAt = bookedAt,
+        note = note,
+        id = id,
+    )
 
     companion object {
 
@@ -67,10 +137,35 @@ class LedgerEntry private constructor(
             note: Note? = null,
             bookedAt: Instant = Instant.now(),
             id: LedgerEntryId = LedgerEntryId.new(),
+        ): Outcome<LedgerEntry> = build(
+            direction = direction,
+            amount = amount,
+            categoryId = categoryId,
+            occurredAt = occurredAt,
+            bookedAt = bookedAt,
+            note = note,
+            id = id,
+        )
+
+        /**
+         * 记账（[record]）与修改（[revise]）**共用**的校验与构造。
+         *
+         * 抽出来的理由不是"少写几行"，而是**规则只有一份**：
+         * 两条路径各写一遍校验，迟早会漂移——其中一条会漏掉后来新增的规则（`REQ-003/BR-6`）。
+         *
+         * 两个 return，正好是 detekt 的 ReturnCount 上界。
+         * 注意：`categoryId` 必须先用局部 val 接住，`when` 的分支条件**不会**
+         * 让 Kotlin 对参数做智能转换（实测编译报错），而 `?:` 会。
+         */
+        private fun build(
+            direction: EntryDirection,
+            amount: Money,
+            categoryId: CategoryId?,
+            occurredAt: Instant,
+            bookedAt: Instant,
+            note: Note?,
+            id: LedgerEntryId,
         ): Outcome<LedgerEntry> {
-            // 两个 return，正好是 detekt 的 ReturnCount 上界。
-            // 注意：`categoryId` 必须先用局部 val 接住，`when` 的分支条件**不会**
-            // 让 Kotlin 对参数做智能转换（实测编译报错），而 `?:` 会。
             val category = categoryId ?: return Outcome.Err(LedgerError.CategoryRequired)
 
             return if (amount <= Money.ZERO) {

@@ -1,10 +1,9 @@
 package com.jizhangbao.ledger.presentation
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,7 +34,19 @@ internal fun EntriesSection(
     entries: List<LedgerEntry>,
     zone: ZoneId,
     showDeletedNotice: Boolean,
+    onEdit: (LedgerEntry) -> Unit,
     onDelete: (LedgerEntry) -> Unit,
+    /**
+     * 施加在列表容器上的修饰符。
+     *
+     * ⚠️ 这里**刻意不用 `LazyColumn`**：本区块的上层是一个可滚动的 `Column`
+     * （整页要能滚，否则表单占满一屏后列表行够不到），而 `LazyColumn` 嵌在
+     * 纵向可滚动父容器里会因为**无限高度约束直接崩**。
+     * 代价是失去懒加载：条目上限由 `LoadRecentEntriesUseCase.DEFAULT_LIMIT`（200）兜住，
+     * 在这个量级上可接受。真正需要分页时，应当把**整页**做成一个 LazyColumn
+     * （表头/表单/列表都作为它的 item），而不是把 LazyColumn 嵌回来。
+     */
+    modifier: Modifier = Modifier,
 ) {
     Text(
         text = stringResource(R.string.ledger_list_title),
@@ -57,16 +68,29 @@ internal fun EntriesSection(
             style = MaterialTheme.typography.bodyMedium,
         )
     } else {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(items = entries, key = { it.id.value }) { entry ->
-                EntryRow(entry = entry, zone = zone, onDelete = { onDelete(entry) })
+        Column(
+            modifier = modifier,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            entries.forEach { entry ->
+                EntryRow(
+                    entry = entry,
+                    zone = zone,
+                    onEdit = { onEdit(entry) },
+                    onDelete = { onDelete(entry) },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun EntryRow(entry: LedgerEntry, zone: ZoneId, onDelete: () -> Unit) {
+private fun EntryRow(
+    entry: LedgerEntry,
+    zone: ZoneId,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -82,6 +106,9 @@ private fun EntryRow(entry: LedgerEntry, zone: ZoneId, onDelete: () -> Unit) {
                     entry.occurredAt.atZone(zone).toLocalDate().format(DATE_FORMAT),
                 style = MaterialTheme.typography.bodyMedium,
             )
+            TextButton(onClick = onEdit) {
+                Text(stringResource(R.string.ledger_edit))
+            }
             TextButton(onClick = onDelete) {
                 Text(stringResource(R.string.ledger_delete))
             }

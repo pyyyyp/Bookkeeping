@@ -15,6 +15,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,6 +78,8 @@ internal fun LedgerRoute(
         onOccurredAtChange = viewModel::onOccurredAtChange,
         onNoteChange = viewModel::onNoteChange,
         onSave = viewModel::onSave,
+        onEditRequested = viewModel::onEditRequested,
+        onEditCancel = viewModel::onEditCancelled,
         onDeleteRequested = viewModel::onDeleteRequested,
         onDeleteConfirmed = viewModel::onDeleteConfirmed,
         onDeleteCancelled = viewModel::onDeleteCancelled,
@@ -99,6 +103,8 @@ internal fun LedgerScreen(
     onOccurredAtChange: (Instant) -> Unit,
     onNoteChange: (String) -> Unit,
     onSave: () -> Unit,
+    onEditRequested: (com.jizhangbao.ledger.domain.model.LedgerEntry) -> Unit,
+    onEditCancel: () -> Unit,
     onDeleteRequested: (com.jizhangbao.ledger.domain.model.LedgerEntry) -> Unit,
     onDeleteConfirmed: () -> Unit,
     onDeleteCancelled: () -> Unit,
@@ -114,7 +120,12 @@ internal fun LedgerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                // ⚠️ 整页必须可滚动：加上合计区之后，表单本身就占满了一屏
+                // （实测 MuMu 1080p 高密度下甚至看不到「发生日期」以下的内容），
+                // 而根容器原来是不可滚动的 Column —— 列表行连同编辑/删除按钮**够不到**。
+                // 这是 T-009 加合计区时引入的回归，由 T-011 的真机冒烟发现。
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             header()
@@ -128,6 +139,7 @@ internal fun LedgerScreen(
                 onDateClick = { showDatePicker = true },
                 onNoteChange = onNoteChange,
                 onSave = onSave,
+                onEditCancel = onEditCancel,
             )
 
             HorizontalDivider()
@@ -136,6 +148,7 @@ internal fun LedgerScreen(
                 entries = state.entries,
                 zone = zone,
                 showDeletedNotice = state.deletedNotice,
+                onEdit = onEditRequested,
                 onDelete = onDeleteRequested,
             )
         }

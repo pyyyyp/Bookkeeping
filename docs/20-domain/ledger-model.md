@@ -70,6 +70,10 @@
 | 方法 | 语义 | 前置条件 | 发出的领域事件 |
 |---|---|---|---|
 | `LedgerEntry.record(direction, amount, categoryId, occurredAt, note, bookedAt, id)` | 工厂：记录一笔新条目 | 参数满足 INV-1/2/5 | **不发事件**（理由见下） |
+| `LedgerEntry.revise(direction, amount, categoryId, occurredAt, note)` | 用新的字段值**替换**这条记录（`REQ-003`） | 与 `record` **同一套**校验（INV-1/2/5） | 返回**同 id** 的新实例：身份不变（`REQ-003/BR-4`），`bookedAt` 也不变（`BR-3`） |
+
+> `revise` 与 `record` 共用同一个私有构造校验，而不是各写一遍：
+> 两条路径各有一份校验，迟早会漂移——其中一条会漏掉后来新增的规则（`REQ-003/BR-6`）。
 
 > **本卡刻意不引入领域事件。** 领域事件是跨上下文解耦的通道，
 > 而本卡没有任何订阅方：Insight 是只读投影（直接读库，见 `context-map.md`），

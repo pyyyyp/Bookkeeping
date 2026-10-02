@@ -55,6 +55,7 @@ class LedgerViewModelTest {
         recordEntry = RecordLedgerEntryUseCase(repository, clock),
         loadEntries = LoadRecentEntriesUseCase(repository),
         deleteEntry = DeleteLedgerEntryUseCase(repository),
+        reviseEntry = com.jizhangbao.ledger.application.ReviseLedgerEntryUseCase(repository),
         clock = clock,
     )
 

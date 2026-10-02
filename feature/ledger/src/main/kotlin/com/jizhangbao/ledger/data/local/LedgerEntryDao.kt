@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 
 /**
  * 账目条目的 Room DAO。
@@ -60,4 +61,16 @@ interface LedgerEntryDao {
         fromEpochMilli: Long,
         toEpochMilli: Long,
     ): Long
+
+    /**
+     * 用同样的主键**整行替换**（`REQ-003`）。
+     *
+     * 用 `@Update` 而不是手写 `UPDATE ... SET`：列清单由 Room 从实体生成，
+     * 将来给实体加字段不会漏掉某一列（手写的 SET 列清单是"加了字段却忘了同步"的经典来源）。
+     *
+     * 返回**受影响行数** —— 0 表示这条已经不在库里了，
+     * 仓储据此返回 `EntryNotFound`，而不是退化成插入（`REQ-003/BR-5`）。
+     */
+    @Update(onConflict = OnConflictStrategy.ABORT)
+    suspend fun update(entity: LedgerEntryEntity): Int
 }
