@@ -16,8 +16,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.jizhangbao.core.domain.CategoryAmount
 import com.jizhangbao.core.domain.MonthlyTotals
 import com.jizhangbao.insight.R
+import java.time.YearMonth
 
 /**
  * 合计区的对外入口。
@@ -29,14 +31,28 @@ import com.jizhangbao.insight.R
  * （见 `T-009` 卡与 `ADR-0008`）。这不是偷懒，是那条依赖规则的直接后果。
  */
 @Composable
-fun MonthlyTotalsRoute(refreshSignal: Int = 0) {
-    MonthlyTotalsRoute(viewModel = hiltViewModel(), refreshSignal = refreshSignal)
+fun MonthlyTotalsRoute(
+    refreshSignal: Int = 0,
+    /**
+     * 用户点了占比里的某一行（`REQ-007`，下钻）。
+     *
+     * 回传的是**整行 + 当前月份**：月份必须由这里给（只有它知道用户在看哪个月），
+     * 而那个不透明标识 Insight **不解释**（`REQ-007/BR-4`）。
+     */
+    onCategorySelected: (CategoryAmount, YearMonth) -> Unit = { _, _ -> },
+) {
+    MonthlyTotalsRoute(
+        viewModel = hiltViewModel(),
+        refreshSignal = refreshSignal,
+        onCategorySelected = onCategorySelected,
+    )
 }
 
 @Composable
 internal fun MonthlyTotalsRoute(
     viewModel: MonthlyTotalsViewModel,
     refreshSignal: Int,
+    onCategorySelected: (CategoryAmount, YearMonth) -> Unit = { _, _ -> },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -49,6 +65,7 @@ internal fun MonthlyTotalsRoute(
         state = state,
         onPreviousMonth = viewModel::onPreviousMonth,
         onNextMonth = viewModel::onNextMonth,
+        onCategorySelected = onCategorySelected,
     )
 }
 
@@ -62,6 +79,7 @@ internal fun MonthlyTotalsSection(
     state: MonthlyTotalsUiState,
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
+    onCategorySelected: (CategoryAmount, YearMonth) -> Unit = { _, _ -> },
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -100,7 +118,11 @@ internal fun MonthlyTotalsSection(
         // 整月都没有记账时，下面的「这个月还没有记账」已经把话说清楚了，
         // 再叠一句"本月还没有支出"只是噪音
         if (state.totals != MonthlyTotals.ZERO && !state.isLoading) {
-            CategoryShareList(breakdown = state.breakdown)
+            CategoryShareList(
+                breakdown = state.breakdown,
+                // 月份由状态给：它才是"用户现在看的是哪个月"的唯一来源
+                onCategorySelected = { row -> onCategorySelected(row, state.month) },
+            )
         }
 
         if (state.totals == MonthlyTotals.ZERO && !state.isLoading) {

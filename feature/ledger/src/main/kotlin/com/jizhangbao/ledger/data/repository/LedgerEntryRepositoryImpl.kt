@@ -2,10 +2,14 @@ package com.jizhangbao.ledger.data.repository
 
 import com.jizhangbao.core.common.AppLogger
 import com.jizhangbao.core.domain.DomainError
+import com.jizhangbao.core.domain.EntryDirection
 import com.jizhangbao.core.domain.Outcome
+import com.jizhangbao.core.domain.TimeRange
 import com.jizhangbao.ledger.data.local.LedgerEntryDao
+import com.jizhangbao.ledger.data.local.LedgerEntryEntity
 import com.jizhangbao.ledger.data.local.LedgerEntryMapper
 import com.jizhangbao.ledger.domain.error.LedgerError
+import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.LedgerEntry
 import com.jizhangbao.ledger.domain.model.LedgerEntryId
 import com.jizhangbao.ledger.domain.model.RecentEntries
@@ -73,9 +77,40 @@ internal class LedgerEntryRepositoryImpl @Inject constructor(
         val rows = storageOutcome("读取最近的账目") { dao.recent(limit) }
         if (rows is Outcome.Err) return Outcome.Err(rows.error)
 
-        // 逐行映射：坏行不牵连其它行（AC-3）
+        return Outcome.Ok((rows as Outcome.Ok).value.toRecentEntries())
+    }
+
+    override suspend fun inCategory(
+        categoryId: CategoryId,
+        direction: EntryDirection,
+        range: TimeRange,
+        limit: Int,
+    ): Outcome<RecentEntries> {
+        // 口径与合计/占比同源（REQ-007/BR-1）：同一个方向、同一个半开区间、同一个归属字段
+        val rows = storageOutcome("读取某个分类的账目") {
+            dao.inCategory(
+                categoryId = categoryId.value,
+                direction = direction.name,
+                fromEpochMilli = range.start.toEpochMilli(),
+                toEpochMilli = range.end.toEpochMilli(),
+                limit = limit,
+            )
+        }
+
+        if (rows is Outcome.Err) return Outcome.Err(rows.error)
+        return Outcome.Ok((rows as Outcome.Ok).value.toRecentEntries())
+    }
+
+    /**
+     * 逐行还原成领域条目，**坏行跳过、计数、记一条 warn**（`REQ-006/AC-3`）。
+     *
+     * 从 [recent] 与 [inCategory] 里提出来：两处的处理**必须一模一样** ——
+     * 一条坏数据在下钻清单里藏起整张清单，和在主列表里藏起整张列表是同一个故障。
+     * 这种"两处必须一致"的逻辑不能复制粘贴（复制的那份迟早漏改）。
+     */
+    private fun List<LedgerEntryEntity>.toRecentEntries(): RecentEntries {
         val failures = mutableListOf<Throwable>()
-        val entries = (rows as Outcome.Ok).value.mapNotNull { row ->
+        val entries = mapNotNull { row ->
             runCatching { LedgerEntryMapper.toDomain(row) }
                 .onFailure(failures::add)
                 .getOrNull()
@@ -89,7 +124,7 @@ internal class LedgerEntryRepositoryImpl @Inject constructor(
             )
         }
 
-        return Outcome.Ok(RecentEntries(entries = entries, unreadable = failures.size))
+        return RecentEntries(entries = entries, unreadable = failures.size)
     }
 
     /**

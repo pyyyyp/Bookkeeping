@@ -7,11 +7,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.jizhangbao.core.ui.theme.JizhangbaoTheme
 import com.jizhangbao.insight.presentation.MonthlyTotalsRoute
+import com.jizhangbao.ledger.presentation.LedgerCategoryEntriesDialog
 import com.jizhangbao.ledger.presentation.LedgerRoute
+import java.time.YearMonth
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -61,8 +64,45 @@ class MainActivity : ComponentActivity() {
 private fun HomeScreen() {
     var entriesRevision by remember { mutableIntStateOf(0) }
 
+    // REQ-007：当前正在下钻的那一行。null = 没有打开清单。
+    // 状态住组合根是**被迫**的：占比行在 Insight、条目清单在 Ledger，
+    // 而 R2 不许它们互相认识 —— 只有这里能同时看见两者。
+    var drillDown by remember { mutableStateOf<DrillDownTarget?>(null) }
+
     LedgerRoute(
         onEntriesChanged = { entriesRevision++ },
-        header = { MonthlyTotalsRoute(refreshSignal = entriesRevision) },
+        header = {
+            MonthlyTotalsRoute(
+                refreshSignal = entriesRevision,
+                onCategorySelected = { row, month ->
+                    // 原样转交：`:app` 也不解释那个标识（REQ-007/BR-4），它只搬
+                    drillDown = DrillDownTarget(row.categoryKey, row.categoryName, month)
+                },
+            )
+        },
     )
+
+    drillDown?.let { target ->
+        LedgerCategoryEntriesDialog(
+            categoryKey = target.categoryKey,
+            categoryName = target.categoryName,
+            month = target.month,
+            onDismiss = { drillDown = null },
+        )
+    }
 }
+
+/**
+ * 正在下钻的目标（`REQ-007`）。
+ *
+ * 单独一个类型而不是 `Triple`：三个 `String`/`YearMonth` 挨在一起时，
+ * 位置写反只有运行时才看得出来；有名字就不会。
+ *
+ * `categoryKey` 是**不透明标识** —— 组合根只是把它从 Insight 搬到 Ledger，
+ * 中间没有任何人解释过它（`REQ-007/BR-4`）。
+ */
+private data class DrillDownTarget(
+    val categoryKey: String,
+    val categoryName: String,
+    val month: YearMonth,
+)

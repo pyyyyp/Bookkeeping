@@ -43,6 +43,11 @@
     <string name="ledger_error_load_failed">账目暂时读不出来：本机数据库出错</string>
     <!-- REQ-006/AC-3：跳过坏数据必须伴随告知，不能让它看起来像"账目变少了" -->
     <string name="ledger_unreadable_entries">有 %1$d 条记录读不出来（数据可能被外部改坏），已跳过；它们仍计入合计。</string>
+    <!-- REQ-007 分类下钻：标题必须说清"哪个分类、哪个月"，否则用户不知道自己在看什么 -->
+    <string name="ledger_category_entries_title">%1$s · %2$s</string>
+    <string name="ledger_category_entries_empty">这个月这一类没有支出</string>
+    <string name="ledger_category_entries_failed">这些记录暂时读不出来：本机数据库出错</string>
+    <string name="ledger_category_entries_close">关闭</string>
     <string name="ledger_error_rejected">这条记录没有被接受，请检查填写内容</string>
 
     <!-- 分类管理（REQ-004）：入口在记账页顶部 -->

@@ -1,5 +1,6 @@
 package com.jizhangbao.insight.presentation
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.jizhangbao.core.domain.CategoryAmount
 import com.jizhangbao.core.domain.CategoryBreakdown
 import com.jizhangbao.insight.R
 
@@ -28,7 +30,17 @@ import com.jizhangbao.insight.R
  * 颜色、图例、极小扇区、无障碍朗读 —— 那是另一个需求的工作量。
  */
 @Composable
-internal fun CategoryShareList(breakdown: CategoryBreakdown) {
+internal fun CategoryShareList(
+    breakdown: CategoryBreakdown,
+    /**
+     * 用户点了某一行（`REQ-007`，下钻）。
+     *
+     * 注意传出去的是**整行**（含那个不透明标识），Insight **不解释**它 ——
+     * 它只负责说"用户点了这一行"（`REQ-007/BR-4`）。谁认识分类、谁去取条目，
+     * 由组合根与 Ledger 决定。
+     */
+    onCategorySelected: (CategoryAmount) -> Unit = {},
+) {
     if (breakdown.isEmpty) {
         // AC-5：没有支出时说清楚，而不是显示一排 0.0%
         Text(
@@ -45,7 +57,10 @@ internal fun CategoryShareList(breakdown: CategoryBreakdown) {
         )
         breakdown.rows.forEach { row ->
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // 整行可点：占比里的数字是聚合值，用户的第一反应就是"这是哪几笔"（REQ-007/AC-1）
+                    .clickable { onCategorySelected(row) },
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(

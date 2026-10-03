@@ -1,7 +1,10 @@
 package com.jizhangbao.ledger.testing
 
+import com.jizhangbao.core.domain.EntryDirection
 import com.jizhangbao.core.domain.Outcome
+import com.jizhangbao.core.domain.TimeRange
 import com.jizhangbao.ledger.domain.error.LedgerError
+import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.LedgerEntry
 import com.jizhangbao.ledger.domain.model.LedgerEntryId
 import com.jizhangbao.ledger.domain.model.RecentEntries
@@ -73,6 +76,36 @@ internal class FakeLedgerEntryRepository : LedgerEntryRepository {
 
     override suspend fun recent(limit: Int): Outcome<RecentEntries> =
         recentOutcome ?: Outcome.Ok(RecentEntries.of(entries.take(limit)))
+
+    /** 非 null 时 `inCategory` 直接返回它，用于制造失败场景。 */
+    var inCategoryOutcome: Outcome<RecentEntries>? = null
+
+    /** 最近一次 `inCategory` 收到的（分类、方向、区间）—— 用来钉住"口径与占比同源"（`REQ-007/BR-1`）。 */
+    var lastInCategory: Triple<CategoryId, EntryDirection, TimeRange>? = null
+
+    /** 最近一次 `inCategory` 收到的条数上限。 */
+    var lastInCategoryLimit: Int? = null
+
+    override suspend fun inCategory(
+        categoryId: CategoryId,
+        direction: EntryDirection,
+        range: TimeRange,
+        limit: Int,
+    ): Outcome<RecentEntries> {
+        lastInCategory = Triple(categoryId, direction, range)
+        lastInCategoryLimit = limit
+        return inCategoryOutcome ?: Outcome.Ok(
+            RecentEntries.of(
+                entries
+                    .filter { it.categoryId == categoryId && it.direction == direction }
+                    // 半开区间，与 SQL 的口径一致（>= start 且 < end）
+                    .filter {
+                        !it.occurredAt.isBefore(range.start) && it.occurredAt.isBefore(range.end)
+                    }
+                    .take(limit),
+            ),
+        )
+    }
 
     /** 已经真的存进去的条目（`add` 失败时不会出现在这里）。 */
     fun stored(): List<LedgerEntry> = entries.toList()
