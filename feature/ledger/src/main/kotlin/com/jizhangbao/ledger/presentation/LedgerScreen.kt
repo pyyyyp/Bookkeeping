@@ -15,8 +15,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,7 +28,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.jizhangbao.core.domain.EntryDirection
 import com.jizhangbao.ledger.R
+import com.jizhangbao.ledger.domain.model.CategoryId
+import com.jizhangbao.ledger.domain.model.LedgerEntry
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -120,21 +124,24 @@ internal fun LedgerScreen(
     Scaffold(
         topBar = { LedgerTopBar(onCategoriesClick = { showCategories = true }) },
     ) { innerPadding ->
-        Column(
+        // ⚠️ **整页一个 `LazyColumn`**（`T-016`）：顶部插槽、表单、列表头部、条目行都是它的 item。
+        //
+        // 它取代了 T-011 的临时结构（外层 verticalScroll + 列表用普通 Column）。那个结构当时
+        // 修好了"列表够不到"，但每加一个区块都要重新确认"列表还在不在屏内" —— T-009 加合计区时
+        // 就是因为没人确认这一点，制造了 T-011 才发现的那个回归。现在"列表是页面的一部分"
+        // 在结构上成立，而且行恢复按需组合（不再一次性组合 200 条）。
+        //
+        // ⚠️ 反过来做（`LazyColumn` 嵌进可滚动容器）会因无限高度约束直接崩，别再试。
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp)
-                // ⚠️ 整页必须可滚动：加上合计区之后，表单本身就占满了一屏
-                // （实测 MuMu 1080p 高密度下甚至看不到「发生日期」以下的内容），
-                // 而根容器原来是不可滚动的 Column —— 列表行连同编辑/删除按钮**够不到**。
-                // 这是 T-009 加合计区时引入的回归，由 T-011 的真机冒烟发现。
-                .verticalScroll(rememberScrollState()),
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            header()
+            item { header() }
 
-            EntryForm(
+            entryFormItem(
                 state = state,
                 zone = zone,
                 onAmountChange = onAmountChange,
@@ -146,18 +153,20 @@ internal fun LedgerScreen(
                 onEditCancel = onEditCancel,
             )
 
-            HorizontalDivider()
-
-            EntriesSection(
-                entries = state.entries,
-                zone = zone,
+            entriesHeaderItem(
+                entriesCount = state.entries.size,
                 showDeletedNotice = state.deletedNotice,
-                onEdit = onEditRequested,
-                onDelete = onDeleteRequested,
-                // 名字由状态解析：含用户自建与已归档的分类
-                nameOf = state::categoryName,
                 // REQ-006/AC-3：跳过了几条读不出来的行，界面上要说出来
                 unreadableEntries = state.unreadableEntries,
+            )
+
+            entriesItems(
+                entries = state.entries,
+                zone = zone,
+                // 名字由状态解析：含用户自建与已归档的分类
+                categoryName = state::categoryName,
+                onEdit = onEditRequested,
+                onDelete = onDeleteRequested,
             )
         }
     }
@@ -186,6 +195,84 @@ internal fun LedgerScreen(
                 // 关掉之后通知一次：分类可能被增/改/归档过，选择器与列表的显示名都要跟着变
                 onCategoriesChanged()
             },
+        )
+    }
+}
+
+/**
+ * 分隔线 + 列表头部，作为 `LazyColumn` 的 item（`T-016`）。
+ *
+ * 分隔线与头部合成一个扩展：它们紧挨着、又都只与"列表开头的说明"有关，
+ * 分成两个扩展只会让调用处更长。
+ */
+private fun LazyListScope.entriesHeaderItem(
+    entriesCount: Int,
+    showDeletedNotice: Boolean,
+    unreadableEntries: Int,
+) {
+    item { HorizontalDivider() }
+    item {
+        EntriesSectionHeader(
+            entriesCount = entriesCount,
+            showDeletedNotice = showDeletedNotice,
+            unreadableEntries = unreadableEntries,
+        )
+    }
+}
+
+/**
+ * 表单那一块，作为 `LazyColumn` 的一个 item（`T-016`）。
+ *
+ * 抽出来的直接原因是 `LedgerScreen` 太长被 detekt 拦下；这一刀切得也对：
+ * 那个函数现在只回答"页面由哪几块组成"，而"每一块内部怎么摆"交给各自的扩展。
+ */
+private fun LazyListScope.entryFormItem(
+    state: LedgerUiState,
+    zone: ZoneId,
+    onAmountChange: (String) -> Unit,
+    onDirectionChange: (EntryDirection) -> Unit,
+    onCategorySelected: (CategoryId) -> Unit,
+    onDateClick: () -> Unit,
+    onNoteChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onEditCancel: () -> Unit,
+) {
+    item {
+        EntryForm(
+            state = state,
+            zone = zone,
+            onAmountChange = onAmountChange,
+            onDirectionChange = onDirectionChange,
+            onCategorySelected = onCategorySelected,
+            onDateClick = onDateClick,
+            onNoteChange = onNoteChange,
+            onSave = onSave,
+            onEditCancel = onEditCancel,
+        )
+    }
+}
+
+/**
+ * 把账目行作为 `LazyColumn` 的 item 铺开（`T-016`）。
+ *
+ * 抽成 `LazyListScope` 的扩展是为了让 [LedgerScreen] 保持短小 —— 它只负责"页面由哪几块组成"，
+ * 而"一块内部怎么铺"在这里。**必须给 `key`**：编辑或删除之后列表会重新组合，
+ * 没有 key 的话行会错位（删除时尤其明显）。
+ */
+private fun LazyListScope.entriesItems(
+    entries: List<LedgerEntry>,
+    zone: ZoneId,
+    categoryName: (CategoryId) -> String,
+    onEdit: (LedgerEntry) -> Unit,
+    onDelete: (LedgerEntry) -> Unit,
+) {
+    items(items = entries, key = { it.id.value }) { entry ->
+        EntryRow(
+            entry = entry,
+            zone = zone,
+            categoryName = categoryName(entry.categoryId),
+            onEdit = { onEdit(entry) },
+            onDelete = { onDelete(entry) },
         )
     }
 }
