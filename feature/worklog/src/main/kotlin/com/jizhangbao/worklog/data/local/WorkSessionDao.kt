@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 
 /**
  * 工时时段的 DAO。
@@ -24,6 +25,16 @@ interface WorkSessionDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(entity: WorkSessionEntity)
+
+    /**
+     * 把**整行**覆盖回去（`T-031` 加的）。
+     *
+     * 为什么不是"按 id 窄更新状态"：状态转换发生在**领域**里
+     * （`WorkSession.confirm()` 走状态机、重新校验不变量），这里只负责把结果存回去。
+     * 窄更新会让"库里那一行"与"领域认为的那一行"有机会不一致 —— 而这条链路的终点是工资。
+     */
+    @Update
+    suspend fun update(entity: WorkSessionEntity)
 
     /**
      * 取开始时刻落在 `[fromEpochMilli, toEpochMilli)` 里的那些时段。

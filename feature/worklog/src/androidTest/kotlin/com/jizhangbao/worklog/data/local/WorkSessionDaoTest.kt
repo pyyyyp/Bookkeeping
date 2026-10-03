@@ -111,4 +111,33 @@ class WorkSessionDaoTest {
         assertEquals(null, stored.endedAtEpochMilli)
         assertEquals(SessionState.RUNNING.name, stored.state)
     }
+
+    @Test
+    fun update_replaces_the_whole_row() = runBlocking {
+        // T-031：确认/作废走的是"整行覆盖"，不是窄更新 —— 所以这里验证
+        // "改过的字段确实写进去了、没改的字段没被动过"
+        dao.insert(
+            WorkSessionEntity(
+                id = uuid(7),
+                startedAtEpochMilli = 1_000L,
+                endedAtEpochMilli = null,
+                state = SessionState.RUNNING.name,
+            ),
+        )
+
+        dao.update(
+            WorkSessionEntity(
+                id = uuid(7),
+                startedAtEpochMilli = 1_000L,
+                endedAtEpochMilli = 2_000L,
+                state = SessionState.CONFIRMED.name,
+            ),
+        )
+
+        val stored = dao.startedBetween(0L, 9_999L).single()
+        assertEquals(SessionState.CONFIRMED.name, stored.state)
+        assertEquals(2_000L, stored.endedAtEpochMilli)
+        // 开始时刻没被动过（窄更新最容易写错的就是这一点）
+        assertEquals(1_000L, stored.startedAtEpochMilli)
+    }
 }

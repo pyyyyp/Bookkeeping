@@ -4,8 +4,10 @@ import com.jizhangbao.core.domain.WorklogReader
 import com.jizhangbao.worklog.data.WorklogReaderImpl
 import com.jizhangbao.worklog.data.location.AndroidLocationSource
 import com.jizhangbao.worklog.data.repository.WorkSessionRepositoryImpl
+import com.jizhangbao.worklog.data.repository.WorkplaceRepositoryImpl
 import com.jizhangbao.worklog.domain.LocationSource
 import com.jizhangbao.worklog.domain.repository.WorkSessionRepository
+import com.jizhangbao.worklog.domain.repository.WorkplaceRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -31,6 +33,11 @@ internal abstract class WorklogModule {
     @Binds
     @Singleton
     internal abstract fun bindWorkSessionRepository(impl: WorkSessionRepositoryImpl): WorkSessionRepository
+
+    /** 工作地点（`T-031`）：界面上配的地点要存得住、读得回（`REQ-016/AC-10`）。 */
+    @Binds
+    @Singleton
+    internal abstract fun bindWorkplaceRepository(impl: WorkplaceRepositoryImpl): WorkplaceRepository
 
     @Binds
     @Singleton

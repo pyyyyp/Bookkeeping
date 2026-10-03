@@ -65,5 +65,28 @@ internal val MIGRATION_2_3: Migration = object : Migration(2, 3) {
     }
 }
 
+/**
+ * `3 → 4`（`T-031` / `REQ-016/AC-10`）：新增工作地点表 `workplace`。
+ *
+ * 同样**只加表**。坐标与半径是 `Double` → SQLite 的 `REAL`
+ * （写成 INTEGER 会把"几百米的围栏"变成"整度"级的粗判 ✗）。
+ */
+internal val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `workplace` (" +
+                "`id` TEXT NOT NULL, " +
+                "`name` TEXT NOT NULL, " +
+                "`latitude` REAL NOT NULL, " +
+                "`longitude` REAL NOT NULL, " +
+                "`radiusMeters` REAL NOT NULL, " +
+                "PRIMARY KEY(`id`)" +
+                ")",
+        )
+    }
+}
+
 /** 全部迁移，按版本顺序。组合根装配数据库时一次性交给 Room。 */
-internal val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+internal val ALL_MIGRATIONS: Array<Migration> =
+    arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
