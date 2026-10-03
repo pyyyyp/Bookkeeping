@@ -11,6 +11,8 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
+    // core:ui：设计系统（T-037 起工时页也用卡片/语义色）。R1 明确允许 feature -> core:ui。
+    implementation(project(":core:ui"))
     // 界面（T-031）：Compose 与 ViewModel。
     // ⚠️ 仍然**没有**引入导航库（Q-028）—— 页面切换在 :app 用一个 when 做。
     implementation(platform(libs.compose.bom))
@@ -59,5 +61,5 @@ dependencies {
 // ⚠️ v1 是**手工记录**：地理围栏要新依赖 + 位置权限，属于必须先问的改动（Q-024），
 // 见 ADR-0012 决策 3。加班门槛不在本模块（它是钱的规则，归 Payroll，ADR-0012 决策 2）。
 //
-// ⚠️ 本模块目前**不含 UI**，因此不依赖 core:ui。
+// ⚠️ 本模块**含 UI**（T-031 起），T-037 起用 core:ui 的设计系统。
 // 本模块不得依赖任何其他 :feature:*（R2）。
