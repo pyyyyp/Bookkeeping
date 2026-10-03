@@ -16,7 +16,8 @@ import kotlin.test.assertTrue
 class CategoryBreakdownTest {
 
     private fun row(name: String, cents: Long): CategoryAmount =
-        CategoryAmount(categoryName = name, amount = Money.ofCents(cents))
+        // 测试里用名字当键就够了：这一层不关心键长什么样，只关心它被原样带着走（REQ-007/BR-4）
+        CategoryAmount(categoryKey = name, categoryName = name, amount = Money.ofCents(cents))
 
     @Test
     fun `三个等额分类各占 33 点 3 百分比_加起来不等于 100 是正确的`() {
@@ -102,6 +103,8 @@ class CategoryBreakdownTest {
 
     @Test
     fun `分类名为空的一行不合法`() {
-        assertFailsWith<IllegalArgumentException> { CategoryAmount(categoryName = "  ", amount = Money.ZERO) }
+        assertFailsWith<IllegalArgumentException> {
+            CategoryAmount(categoryKey = "food", categoryName = "  ", amount = Money.ZERO)
+        }
     }
 }

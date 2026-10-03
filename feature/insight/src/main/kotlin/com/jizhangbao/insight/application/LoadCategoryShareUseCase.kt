@@ -3,6 +3,7 @@ package com.jizhangbao.insight.application
 import com.jizhangbao.core.domain.CategoryBreakdown
 import com.jizhangbao.core.domain.LedgerTotalsReader
 import com.jizhangbao.core.domain.Outcome
+import com.jizhangbao.core.domain.toTimeRange
 import java.time.Clock
 import java.time.YearMonth
 import javax.inject.Inject

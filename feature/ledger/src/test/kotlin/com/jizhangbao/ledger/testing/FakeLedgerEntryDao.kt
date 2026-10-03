@@ -98,4 +98,29 @@ internal class FakeLedgerEntryDao : LedgerEntryDao {
             .map { (categoryId, rows) -> CategorySumRow(categoryId, rows.sumOf { it.amountCents }) }
             .sortedWith(compareByDescending<CategorySumRow> { it.amountCents }.thenBy { it.categoryId })
     }
+
+    /**
+     * 按分类 + 方向 + 半开区间取条目（`REQ-007`，下钻）。
+     *
+     * 真的按存储的行算（与其它方法同一立场）：这样"下钻清单里的金额之和 == 占比行的金额"
+     * 在被测的实现里是**真的**成立的，而不是测试自己编两个看起来一致的数。
+     */
+    override suspend fun inCategory(
+        categoryId: String,
+        direction: String,
+        fromEpochMilli: Long,
+        toEpochMilli: Long,
+        limit: Int,
+    ): List<LedgerEntryEntity> {
+        failure?.let { throw it }
+        return inserted
+            .filter {
+                it.categoryId == categoryId &&
+                    it.direction == direction &&
+                    it.occurredAtEpochMilli >= fromEpochMilli &&
+                    it.occurredAtEpochMilli < toEpochMilli
+            }
+            .sortedByDescending { it.occurredAtEpochMilli }
+            .take(limit)
+    }
 }

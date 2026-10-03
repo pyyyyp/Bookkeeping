@@ -72,6 +72,8 @@ internal class LedgerTotalsReaderImpl @Inject constructor(
             val sums = dao.sumByCategory(EntryDirection.Expense.name, from, to)
             val rows = sums.map { sum ->
                 CategoryAmount(
+                    // REQ-007/BR-4：把分类标识原样带出去，供占比下钻指回"点了哪一行"
+                    categoryKey = sum.categoryId,
                     // 查不到名字时退回标识：至少能看出是哪一条（与界面上的处理一致）
                     categoryName = names[sum.categoryId] ?: sum.categoryId,
                     amount = Money.ofCents(sum.amountCents),

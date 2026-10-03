@@ -100,4 +100,34 @@ interface LedgerEntryDao {
      */
     @Update(onConflict = OnConflictStrategy.ABORT)
     suspend fun update(entity: LedgerEntryEntity): Int
+
+    /**
+     * 某个分类、某个方向、某个范围内的条目（`REQ-007`，占比下钻用）。
+     *
+     * ## 口径必须与占比完全一致（`BR-1`）
+     *
+     * 归属字段（[occurredAtEpochMilli]）、半开区间 `[from, to)`、方向 —— 三样都和
+     * [sumByCategory] 一样。原因很直接：**用户会把清单里各条金额加起来，跟占比行上的
+     * 那个数字对照**。少一个条件（比如漏掉方向过滤，把工资那笔也算进"餐饮"）就会对不上，
+     * 而两个数字就在同一屏上。
+     *
+     * 排序与 [recent] 一致（发生时间倒序）：下钻清单里"最近的在上"才符合直觉 ——
+     * 它与主列表是同一个东西的不同入口，不该有两套顺序。
+     */
+    @Query(
+        "SELECT * FROM ledger_entry " +
+            "WHERE categoryId = :categoryId " +
+            "AND direction = :direction " +
+            "AND occurredAtEpochMilli >= :fromEpochMilli " +
+            "AND occurredAtEpochMilli < :toEpochMilli " +
+            "ORDER BY occurredAtEpochMilli DESC " +
+            "LIMIT :limit",
+    )
+    suspend fun inCategory(
+        categoryId: String,
+        direction: String,
+        fromEpochMilli: Long,
+        toEpochMilli: Long,
+        limit: Int,
+    ): List<LedgerEntryEntity>
 }

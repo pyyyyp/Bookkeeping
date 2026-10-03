@@ -3,10 +3,9 @@ package com.jizhangbao.insight.application
 import com.jizhangbao.core.domain.LedgerTotalsReader
 import com.jizhangbao.core.domain.MonthlyTotals
 import com.jizhangbao.core.domain.Outcome
-import com.jizhangbao.core.domain.TimeRange
+import com.jizhangbao.core.domain.toTimeRange
 import java.time.Clock
 import java.time.YearMonth
-import java.time.ZoneId
 import javax.inject.Inject
 
 /**
@@ -35,14 +34,3 @@ class LoadMonthlyTotalsUseCase @Inject constructor(
     suspend operator fun invoke(month: YearMonth = YearMonth.now(clock)): Outcome<MonthlyTotals> =
         reader.totalsIn(month.toTimeRange(clock.zone))
 }
-
-/**
- * 自然月 → 该月在本机时区下的半开区间 `[月初 00:00, 次月初 00:00)`。
- *
- * 抽成独立的扩展函数是为了**能被单独测试**：边界（跨年、闰年 2 月、非 UTC 时区）
- * 是这里唯一会出错的地方，不该只靠"跑一遍用例"来覆盖。
- */
-internal fun YearMonth.toTimeRange(zone: ZoneId): TimeRange = TimeRange(
-    start = atDay(1).atStartOfDay(zone).toInstant(),
-    end = plusMonths(1).atDay(1).atStartOfDay(zone).toInstant(),
-)

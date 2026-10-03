@@ -1,6 +1,9 @@
 package com.jizhangbao.ledger.domain.repository
 
+import com.jizhangbao.core.domain.EntryDirection
 import com.jizhangbao.core.domain.Outcome
+import com.jizhangbao.core.domain.TimeRange
+import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.LedgerEntry
 import com.jizhangbao.ledger.domain.model.LedgerEntryId
 import com.jizhangbao.ledger.domain.model.RecentEntries
@@ -50,4 +53,19 @@ interface LedgerEntryRepository {
      * （`REQ-006/AC-3`）。
      */
     suspend fun recent(limit: Int): Outcome<RecentEntries>
+
+    /**
+     * 某个分类、某个方向在某段区间内的条目，**按发生时间倒序**（`REQ-007`，占比下钻）。
+     *
+     * 口径必须与合计/占比**完全一致**（`REQ-007/BR-1`）：用户会把清单里的金额加起来，
+     * 核对占比行上那个数字，而两个数字就在同一屏上。
+     *
+     * 同样返回 [RecentEntries]：下钻清单也会遇到坏行，处理方式与主列表一致（`REQ-006/AC-3`）。
+     */
+    suspend fun inCategory(
+        categoryId: CategoryId,
+        direction: EntryDirection,
+        range: TimeRange,
+        limit: Int,
+    ): Outcome<RecentEntries>
 }
