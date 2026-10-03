@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.jizhangbao.android.library)
+    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
@@ -10,6 +11,16 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
+    // 界面（T-031）：Compose 与 ViewModel。
+    // ⚠️ 仍然**没有**引入导航库（Q-028）—— 页面切换在 :app 用一个 when 做。
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.material3)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.hilt.navigation.compose)
+    // 权限申请（REQ-016/AC-8）：rememberLauncherForActivityResult 住这里
+    implementation(libs.androidx.activity.compose)
     // core:common：日志接口（ADR-0010）。数据层的异常翻译要把原因记下来（REQ-006 的教训）。
     implementation(project(":core:common"))
 

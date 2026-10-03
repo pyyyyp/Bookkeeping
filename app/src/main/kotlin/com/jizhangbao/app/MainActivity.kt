@@ -4,16 +4,24 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import com.jizhangbao.core.ui.theme.JizhangbaoTheme
 import com.jizhangbao.insight.presentation.MonthlyTotalsRoute
 import com.jizhangbao.ledger.presentation.LedgerCategoryEntriesDialog
 import com.jizhangbao.ledger.presentation.LedgerRoute
+import com.jizhangbao.worklog.presentation.WorklogScreen
 import java.time.YearMonth
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -62,6 +70,36 @@ class MainActivity : ComponentActivity() {
  */
 @Composable
 private fun HomeScreen() {
+    // ⚠️ Q-028：第二个页面出现了，但**不引入导航库**（`navigation-compose` 是备好了，
+    // 而引入一个新依赖属于必须先问的改动）。两个页面用一个 when + 顶部切换就够 ——
+    // 代价明说：这是临时的，页面变多会变丑，那时按 Q-028 再定。
+    var tab by remember { mutableStateOf(HomeTab.LEDGER) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = tab.ordinal) {
+            HomeTab.entries.forEach { entry ->
+                Tab(
+                    selected = entry == tab,
+                    onClick = { tab = entry },
+                    text = { Text(stringResource(entry.labelRes)) },
+                )
+            }
+        }
+        when (tab) {
+            HomeTab.LEDGER -> LedgerTab()
+            HomeTab.WORKLOG -> WorklogScreen()
+        }
+    }
+}
+
+/** 两个页面（`Q-028`：暂时不引入导航库）。 */
+private enum class HomeTab(val labelRes: Int) {
+    LEDGER(R.string.tab_ledger),
+    WORKLOG(R.string.tab_worklog),
+}
+
+@Composable
+private fun LedgerTab() {
     var entriesRevision by remember { mutableIntStateOf(0) }
 
     // REQ-007：当前正在下钻的那一行。null = 没有打开清单。

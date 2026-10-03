@@ -23,4 +23,12 @@ interface WorkSessionRepository {
 
     /** 取**归属日**落在 `[from, toInclusive]` 的时段（按开始时刻升序）。 */
     suspend fun sessionsIn(from: LocalDate, toInclusive: LocalDate): Outcome<List<WorkSession>>
+
+    /**
+     * 把一段工时**整段**存回去（`T-031`：确认 / 作废走这条路）。
+     *
+     * 状态转换在领域里做（`WorkSession.confirm()` / `discard()`），仓储不参与判断 ——
+     * 它只负责"库里那一行现在等于领域那一行"。
+     */
+    suspend fun save(session: WorkSession): Outcome<Unit>
 }

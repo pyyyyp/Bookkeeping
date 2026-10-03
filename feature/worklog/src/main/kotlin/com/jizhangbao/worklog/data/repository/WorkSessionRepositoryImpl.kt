@@ -52,6 +52,9 @@ class WorkSessionRepositoryImpl @Inject constructor(
             session.id
         }
 
+    override suspend fun save(session: WorkSession): Outcome<Unit> =
+        storageOutcome("更新一段工时") { dao.update(WorkSessionMapper.toEntity(session)) }
+
     override suspend fun sessionsIn(
         from: LocalDate,
         toInclusive: LocalDate,

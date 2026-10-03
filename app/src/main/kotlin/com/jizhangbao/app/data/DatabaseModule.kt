@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.jizhangbao.ledger.data.local.CategoryDao
 import com.jizhangbao.ledger.data.local.LedgerEntryDao
 import com.jizhangbao.worklog.data.local.WorkSessionDao
+import com.jizhangbao.worklog.data.local.WorkplaceDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -50,6 +51,10 @@ internal object DatabaseModule {
     @Provides
     fun provideWorkSessionDao(database: JizhangbaoDatabase): WorkSessionDao =
         database.workSessionDao()
+
+    @Provides
+    fun provideWorkplaceDao(database: JizhangbaoDatabase): WorkplaceDao =
+        database.workplaceDao()
 
     /**
      * 系统时钟。注入而不是各处直接 `Instant.now()`：
