@@ -54,16 +54,20 @@ class MonthlyComparisonTest {
     }
 
     @Test
-    fun `只比支出_上月有收入但没支出时仍算基线为空`() {
-        // 这条钉住"环比只回答'我花得多了吗'"：收入不影响它
+    fun `只比支出_上月的收入不进差额_但也不算空月`() {
+        // 这条钉住"环比只回答'我花得多了吗'"：收入不参与差额
         val comparison = MonthlyComparison(
             current = totals(1_000),
             previous = totals(expenseCents = 0, incomeCents = 800_000),
         )
 
-        assertEquals(0L, comparison.expenseDelta.cents)
-        assertTrue(comparison.isUnchanged)
-        // 上月有收入 → 不是"没有记账"，所以 previousIsEmpty 为假
+        // 差额 = 本月支出 − 上月支出 = 1000 − 0。
+        // ⚠️ 这条断言以前写的是 0（抄"持平"那条时写错了），而它之所以一直没被发现，
+        // 是因为**领域层测试不在门禁里**（`testDebugUnitTest` 对纯 JVM 模块不存在）——
+        // 详见 T-022 卡"顺带发现"一节
+        assertEquals(1_000L, comparison.expenseDelta.cents)
+        assertFalse(comparison.isUnchanged)
+        // 但上月**有记账**（有收入）→ 不是"一条记录都没有"那个事实
         assertFalse(comparison.previousIsEmpty)
     }
 }

@@ -3,12 +3,9 @@ package com.jizhangbao.insight.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jizhangbao.core.domain.CategoryBreakdown
-import com.jizhangbao.core.domain.Outcome
-import com.jizhangbao.insight.application.LoadCategoryShareUseCase
 import com.jizhangbao.core.domain.MonthlyTrend
-import com.jizhangbao.insight.application.LoadMonthlyComparisonUseCase
-import com.jizhangbao.insight.application.LoadMonthlyTotalsUseCase
-import com.jizhangbao.insight.application.LoadMonthlyTrendUseCase
+import com.jizhangbao.core.domain.Outcome
+import com.jizhangbao.insight.application.LoadMonthlyInsightUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,12 +31,16 @@ import javax.inject.Inject
  */
 @HiltViewModel
 internal class MonthlyTotalsViewModel @Inject constructor(
-    private val loadMonthlyTotals: LoadMonthlyTotalsUseCase,
-    private val loadCategoryShare: LoadCategoryShareUseCase,
-    /** `REQ-009`：与上月的环比。**不新端口**，只是同一个方法换个区间（`BR-5`）。 */
-    private val loadMonthlyComparison: LoadMonthlyComparisonUseCase,
-    /** `REQ-010`：最近几个月的趋势。同样**不新端口** —— 同一个方法问六次。 */
-    private val loadMonthlyTrend: LoadMonthlyTrendUseCase,
+    /**
+     * `T-022`：**一个**用例取齐四块读模型。
+     *
+     * 以前这里有四个用例（合计 / 占比 / 环比 / 趋势），各自"自足"地再去问一次端口 ——
+     * 到 `REQ-010` 为止一次刷新打 **9 次** `totalsIn`，而它们只需要 **6 段不同的区间**。
+     * 合并之后"同一批查询"在类型上成立，重复无从产生。
+     *
+     * ⚠️ 这是**行为不变**的重构：界面看到的四块、口径、失败行为都一样，变的只是问几次。
+     */
+    private val loadMonthlyInsight: LoadMonthlyInsightUseCase,
     private val clock: Clock,
 ) : ViewModel() {
 
@@ -61,39 +62,31 @@ internal class MonthlyTotalsViewModel @Inject constructor(
         val month = _uiState.value.month
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            when (val result = loadMonthlyTotals(month)) {
+            when (val insight = loadMonthlyInsight(month)) {
                 is Outcome.Ok -> _uiState.update {
-                    it.copy(totals = result.value, isLoading = false, hasFailure = false)
+                    val value = insight.value
+                    // 四块一起写进状态：它们来自**同一个快照**，所以不可能出现
+                    // "合计是 10 月、占比是 9 月"（REQ-005/AC-7）这种同屏矛盾
+                    it.copy(
+                        totals = value.totals,
+                        breakdown = value.breakdown,
+                        comparison = value.comparison,
+                        trend = value.trend,
+                        isLoading = false,
+                        hasFailure = false,
+                    )
                 }
+                // 任一块读不出来都算"查不到"（显式失败），不是"这个月没花钱"。
+                // 失败时的清理与重构前**逐项一致**：占比清空、环比置 null、趋势置空
+                // （界面据此隐藏它们），而合计保持原值 —— 那是 T-022 之前的既有行为
                 is Outcome.Err -> _uiState.update {
-                    // 查不到与"这个月没花钱"必须区分：前者是错误，后者是零
-                    it.copy(isLoading = false, hasFailure = true)
-                }
-            }
-
-            // 环比在同一次刷新里取（REQ-009）：两段区间都由用例按**同一个 month** 算，
-            // 所以不会出现"合计是 10 月、环比是 9 月"这种同屏矛盾
-            when (val comparison = loadMonthlyComparison(month)) {
-                is Outcome.Ok -> _uiState.update { it.copy(comparison = comparison.value) }
-                // BR-4：读不出来就**不显示**环比 —— 拿 0 冒充"没有变化"比不显示更糟
-                is Outcome.Err -> _uiState.update { it.copy(comparison = null) }
-            }
-
-            // 趋势（REQ-010）：以**用户当前看的那个月**为最后一个月，所以翻月时一起变。
-            // 与合计、环比、占比都在同一次刷新里取，避免"合计是 10 月、趋势最后一行是 9 月"
-            when (val trend = loadMonthlyTrend(month)) {
-                is Outcome.Ok -> _uiState.update { it.copy(trend = trend.value) }
-                // BR-4：任一个月读不出来就整条不显示 —— "六个月都是零"比不显示糟得多
-                is Outcome.Err -> _uiState.update { it.copy(trend = MonthlyTrend.EMPTY) }
-            }
-
-            // 占比在同一次刷新里取（REQ-005/AC-7）：翻月时两者必须一起变，
-            // 分两次刷新就可能出现"合计是 10 月、占比还是 9 月"的同屏矛盾
-            when (val share = loadCategoryShare(month)) {
-                is Outcome.Ok -> _uiState.update { it.copy(breakdown = share.value) }
-                is Outcome.Err -> _uiState.update {
-                    // 与合计同一个立场：查不到是错误（显式提示），不是"没有支出"
-                    it.copy(hasFailure = true, breakdown = CategoryBreakdown.EMPTY)
+                    it.copy(
+                        isLoading = false,
+                        hasFailure = true,
+                        breakdown = CategoryBreakdown.EMPTY,
+                        comparison = null,
+                        trend = MonthlyTrend.EMPTY,
+                    )
                 }
             }
         }

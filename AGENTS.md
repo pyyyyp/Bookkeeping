@@ -126,7 +126,9 @@ git switch -c feat/T-012-<slug>
 ### 阶段 E · 验证
 
 ```bash
-./gradlew detekt lintDebug testDebugUnitTest assembleDebug
+# ⚠️ 用 `test` 而不是 `testDebugUnitTest`：后者对纯 JVM 模块（`:core:domain`）不存在，
+#    用它等于领域层测试一条都不跑（T-022 实测：44 条长期没进过门禁）
+./gradlew detekt lintDebug test assembleDebug
 ./gradlew verifyDomainPurity checkModuleDependencies
 ```
 
@@ -256,7 +258,7 @@ AC: REQ-004/AC-1, REQ-004/AC-2
 **提交前门禁（缺一不可）**
 
 ```bash
-./gradlew detekt lintDebug testDebugUnitTest assembleDebug
+./gradlew detekt lintDebug test assembleDebug
 ./gradlew verifyDomainPurity checkModuleDependencies
 git status && git diff --cached
 ```

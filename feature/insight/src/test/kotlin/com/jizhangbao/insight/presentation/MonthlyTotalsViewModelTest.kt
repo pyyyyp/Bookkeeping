@@ -4,10 +4,7 @@ import com.jizhangbao.core.domain.DomainError
 import com.jizhangbao.core.domain.MonthlyTotals
 import com.jizhangbao.core.domain.Outcome
 import com.jizhangbao.core.domain.toTimeRange
-import com.jizhangbao.insight.application.LoadCategoryShareUseCase
-import com.jizhangbao.insight.application.LoadMonthlyComparisonUseCase
-import com.jizhangbao.insight.application.LoadMonthlyTrendUseCase
-import com.jizhangbao.insight.application.LoadMonthlyTotalsUseCase
+import com.jizhangbao.insight.application.LoadMonthlyInsightUseCase
 import com.jizhangbao.insight.testing.FakeLedgerTotalsReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -44,12 +41,8 @@ class MonthlyTotalsViewModelTest {
     private val clock: Clock = Clock.fixed(Instant.parse("2026-10-15T00:00:00Z"), zone)
 
     private fun viewModel() = MonthlyTotalsViewModel(
-        loadMonthlyTotals = LoadMonthlyTotalsUseCase(reader, clock),
-        loadCategoryShare = LoadCategoryShareUseCase(reader, clock),
-        // REQ-009：环比用同一个端口 fake（它收的就是任意区间）
-        loadMonthlyComparison = LoadMonthlyComparisonUseCase(reader, clock),
-        // REQ-010：趋势同样用这个端口 fake（对最近六段区间各问一次）
-        loadMonthlyTrend = LoadMonthlyTrendUseCase(reader, clock),
+        // `T-022`：四块合成一个用例 —— 端口因此只被问**六段**（各一次），而不是九次
+        loadMonthlyInsight = LoadMonthlyInsightUseCase(reader, clock),
         clock = clock,
     )
 
@@ -68,10 +61,9 @@ class MonthlyTotalsViewModelTest {
         val vm = viewModel()
         advanceUntilIdle()
 
-        // 一次刷新取**三块**：合计 1 次、环比 2 次（本月 + 上月）、趋势 6 次（含前两者）。
+        // 一次刷新取**六段**区间，**各一次** —— `T-022` 之前是九次（十月三次、九月两次）。
         //
-        // 这里把序列逐字钉住 —— 它是"每个用例自足"的代价（见 T-019 / T-021 卡的说明）：
-        // 将来若改成"一次快照"，这条断言会**提醒改测试**，而不是悄悄多打几次查询。
+        // 这条断言是那次重构的验收标准之一：序列被逐字钉住，重复一旦回来就会红。
         val october = YearMonth.of(2026, 10).toTimeRange(zone)
         val september = YearMonth.of(2026, 9).toTimeRange(zone)
         val august = YearMonth.of(2026, 8).toTimeRange(zone)
@@ -79,11 +71,7 @@ class MonthlyTotalsViewModelTest {
         val june = YearMonth.of(2026, 6).toTimeRange(zone)
         val may = YearMonth.of(2026, 5).toTimeRange(zone)
         assertEquals(
-            listOf(
-                october, // 合计（REQ-002）
-                october, september, // 环比：本月 + 上月（REQ-009）
-                october, september, august, july, june, may, // 趋势：最近六个月（REQ-010）
-            ),
+            listOf(october, september, august, july, june, may),
             reader.requestedRanges,
         )
         assertEquals(1, reader.requestedBreakdownRanges.size)
@@ -106,7 +94,10 @@ class MonthlyTotalsViewModelTest {
         assertEquals(YearMonth.of(2026, 4).toTimeRange(zone), reader.requestedRanges.last())
         // ⚠️ 不能用 `requestedRanges.first()` 代表"这一次的合计"：**初始化那次刷新也在同一个列表里**
         // （它是十月）。能钉住的是"翻月后九月这一段确实被问了" —— 合计、环比、趋势各一次
-        assertTrue(reader.requestedRanges.count { it == september } >= 3)
+        // 九月被问了**两次**：初始化那次（趋势的第二行）+ 这一次（合计与趋势首行）。
+        // ⚠️ `T-022` 之前是**三次** —— 多出来那次是"环比用例自发地又问了一遍本月"。
+        // 这个数字就是那次重构的收据，所以写成精确值而不是"至少两次"
+        assertEquals(2, reader.requestedRanges.count { it == september })
     }
 
     @Test

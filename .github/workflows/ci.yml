@@ -21,7 +21,7 @@
 #   ./gradlew detekt                          → 「静态分析」
 #   ./gradlew lintDebug                       → 同上（AGENTS.md 把两者并列）
 #   ./gradlew verifyDomainPurity checkModuleDependencies → 「架构规则」
-#   ./gradlew testDebugUnitTest               → 「单测」（含 Konsist 架构断言）
+#   ./gradlew test                            → 「单测」（纯 JVM 模块 + Android 模块，含 Konsist 断言）
 #   ./gradlew assembleDebug                   → 「构建」
 #   ./scripts/verify-traceability.ps1         → 追溯矩阵校验（T-004 新增）
 
@@ -141,8 +141,11 @@ jobs:
       - name: 架构规则（R2 / R3 / R7 / R8）
         run: ./gradlew verifyDomainPurity checkModuleDependencies --console=plain
 
-      - name: 单元测试（含 Konsist 架构断言 R2/R5/R6/R8/R10）
-        run: ./gradlew testDebugUnitTest --console=plain
+      - name: 单元测试（JVM 模块 + Android 模块，含 Konsist 架构断言 R2/R5/R6/R8/R10）
+        # ⚠️ 必须用 `test` 而不是 `testDebugUnitTest`：`:core:domain` 是**纯 JVM 模块**，
+        # 根本没有 `testDebugUnitTest` 这个任务 —— 用它就等于**领域层测试一条都不跑**
+        # （T-022 实测发现：44 条领域层测试长期没进过门禁，其中一条还是错的）
+        run: ./gradlew test --console=plain
 
       - name: 构建 Debug APK
         run: ./gradlew assembleDebug --console=plain
