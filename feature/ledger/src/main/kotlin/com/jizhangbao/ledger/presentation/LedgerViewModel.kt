@@ -1,0 +1,356 @@
+package com.jizhangbao.ledger.presentation
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.jizhangbao.core.domain.DomainError
+import com.jizhangbao.core.domain.Money
+import com.jizhangbao.core.domain.EntryDirection
+import com.jizhangbao.core.domain.Outcome
+import com.jizhangbao.ledger.application.DeleteLedgerEntryUseCase
+import com.jizhangbao.ledger.application.DiscardUnreadableRowUseCase
+import com.jizhangbao.ledger.application.LoadCategoriesUseCase
+import com.jizhangbao.ledger.application.LoadRecentEntriesUseCase
+import com.jizhangbao.ledger.application.RecordLedgerEntryUseCase
+import com.jizhangbao.ledger.application.ReviseLedgerEntryUseCase
+import com.jizhangbao.ledger.domain.model.CategoryId
+import com.jizhangbao.ledger.domain.model.LedgerEntry
+import com.jizhangbao.ledger.domain.model.Note
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import java.time.Clock
+import java.time.Instant
+import javax.inject.Inject
+
+/**
+ * 记账界面的状态持有者。
+ *
+ * ## 它不做什么
+ *
+ * **一条业务规则都没有**。「金额必须大于 0」「必须有分类」由聚合判定；
+ * 这里只做三件事：把输入文本解析成领域值、调用用例、把结果翻译成界面状态。
+ *
+ * ## 为什么列表是「保存后重新查询」而不是 Flow
+ *
+ * 本卡不做反应式观察（见仓储接口的说明），所以保存成功后显式 [refreshEntries]。
+ * 代价是多一次查询，好处是不必为一个尚未兑现的需要引入协程依赖。
+ */
+@HiltViewModel
+internal class LedgerViewModel @Inject constructor(
+    private val recordEntry: RecordLedgerEntryUseCase,
+    private val loadEntries: LoadRecentEntriesUseCase,
+    private val deleteEntry: DeleteLedgerEntryUseCase,
+    private val reviseEntry: ReviseLedgerEntryUseCase,
+    private val loadCategories: LoadCategoriesUseCase,
+    /** `REQ-008`：把"读不出来的那一条"清掉 —— 与删一条正常条目是两个用例。 */
+    private val discardUnreadableRow: DiscardUnreadableRowUseCase,
+    clock: Clock,
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(LedgerUiState.initial(clock.instant()))
+    val uiState: StateFlow<LedgerUiState> = _uiState.asStateFlow()
+
+    init {
+        refreshEntries()
+        refreshCategories()
+    }
+
+    /**
+     * 分类管理界面关掉之后调用（`REQ-004`）。
+     *
+     * 分类是被**另一个** ViewModel 改的（`CategoryManagerViewModel`），
+     * 而"账本页要在改完之后看到新的分类清单"这件事只有界面知道 ——
+     * 所以由界面在关闭时通知一次，而不是让两个 ViewModel 互相持有。
+     * 这与 `T-009` 用"顶部插槽 + 修订号"而不是回调是同一个立场：
+     * 跨界面/跨上下文的联动交给组合根，不让它们彼此认识。
+     */
+    fun onCategoriesChanged() {
+        refreshCategories()
+        // 修订号也 +1：分类名是**读模型**（占比区）要显示的东西，而那里的名字由端口在查询时解析。
+        // 不这么做，改完名回到记账页会出现"列表显示新名字、占比区还挂着旧名字"的同屏矛盾
+        // —— `T-013` 的真机冒烟就是这么发现的（改名后占比区仍是旧名字）。
+        // 分类清单属于账本数据的一部分，所以让它与记账/编辑/删除走同一条通知通路是对的：
+        // Ledger 仍然不认识 Insight，是组合根看到"账本变了"之后去通知它。
+        _uiState.update { it.copy(entriesRevision = it.entriesRevision + 1) }
+    }
+
+    fun onAmountChange(text: String) {
+        // 用户一开始改金额，就把上一次的报错撤掉——否则提示会赖在屏幕上不走
+        _uiState.update { it.copy(amountText = text, amountError = null) }
+    }
+
+    fun onDirectionChange(direction: EntryDirection) {
+        _uiState.update { current ->
+            // 换方向后，原先选的分类可能已经不适用（例如从「支出」切到「收入」还选着「餐饮」）。
+            // 不静默保留：那会让用户提交一个与方向矛盾的分类。
+            val stillSelectable = current.selectedCategoryId?.let { id ->
+                // 用状态里的全部分类（含自定义），而不是内置清单：
+                // 否则用户刚建的分类在切方向时会被"误判为不适用"而清掉
+                current.allCategories.any { it.id == id && !it.archived && it.supports(direction) }
+            } ?: false
+            current.copy(
+                direction = direction,
+                selectedCategoryId = if (stillSelectable) current.selectedCategoryId else null,
+                failure = null,
+            )
+        }
+    }
+
+    fun onCategorySelected(id: CategoryId) {
+        _uiState.update { it.copy(selectedCategoryId = id, failure = null) }
+    }
+
+    fun onOccurredAtChange(instant: Instant) {
+        _uiState.update { it.copy(occurredAt = instant) }
+    }
+
+    fun onNoteChange(text: String) {
+        _uiState.update { it.copy(noteText = text, failure = null) }
+    }
+
+    fun onFailureShown() {
+        _uiState.update { it.copy(failure = null) }
+    }
+
+    /**
+     * 用户点了某一条的「删除」——**先把确认交给用户，不碰数据**。
+     *
+     * `AC-8` 的「取消则不删」就是靠这个状态实现的：在 [onDeleteConfirmed] 之前，
+     * 仓储一次都不会被调用。
+     */
+    fun onDeleteRequested(entry: LedgerEntry) {
+        _uiState.update { it.copy(pendingDelete = entry, failure = null, deletedNotice = false) }
+    }
+
+    /** 用户取消 —— 清掉待确认项，什么都不删。 */
+    fun onDeleteCancelled() {
+        _uiState.update { it.copy(pendingDelete = null) }
+    }
+
+    /**
+     * 删掉一条**读不出来**的数据（`REQ-008/AC-2`）。
+     *
+     * 二次确认在界面上（对话框里那一行要先点「删除」再确认），所以到这里就是"用户已经确认了"。
+     *
+     * 删完必须刷新：**合计要跟着变**（`AC-3`）—— 那条钱本来计入（`REQ-006/BR-5`），
+     * 删掉后就不该再算。这正是走 [refreshEntries] 的原因，它同时更新列表与坏行清单。
+     */
+    fun onUnreadableDiscarded(rawId: String) {
+        viewModelScope.launch {
+            when (val result = discardUnreadableRow(rawId)) {
+                is Outcome.Ok -> {
+                    refreshEntries()
+                    // ⚠️ 真机冒烟抓到的 bug：只 refreshEntries 是不够的 ——
+                    // 合计与占比住在 Insight，它们靠**组合根观察 entriesRevision**才重算。
+                    // 不 +1，界面会出现"坏行删掉了、钱还挂在合计里"（实测 ¥40168.45 不动）。
+                    // 这与 T-013 的分类改名漏刷新是同一个根因：**改了账本数据就要发同一个信号**。
+                    _uiState.update { it.copy(entriesRevision = it.entriesRevision + 1) }
+                }
+                // 读/写失败都要说清楚（REQ-006/AC-2 的同一原则）
+                is Outcome.Err -> _uiState.update { it.copy(failure = SaveFailure.LoadFailed) }
+            }
+        }
+    }
+
+    /**
+     * 用户点了某一条的「编辑」——把它的**现有值**填进表单，进入编辑态（`REQ-003/AC-1`）。
+     *
+     * 注意它不碰数据，只是换一个表单形态：之后的保存会走"替换"而不是"新增"。
+     * 金额文本由分反向格式化而来，因此**不会**丢精度（不经过浮点）。
+     */
+    fun onEditRequested(entry: LedgerEntry) {
+        _uiState.update {
+            it.copy(
+                editing = entry,
+                amountText = entry.amount.toPlainYuanText(),
+                direction = entry.direction,
+                selectedCategoryId = entry.categoryId,
+                occurredAt = entry.occurredAt,
+                noteText = entry.note?.text.orEmpty(),
+                amountError = null,
+                failure = null,
+                deletedNotice = false,
+            )
+        }
+    }
+
+    /**
+     * 用户取消编辑（`REQ-003/AC-6`）。
+     *
+     * 表单回到"记一笔"形态：**清空金额与备注**（它们属于刚被放弃的那次编辑），
+     * 但保留方向与分类（与保存成功后的行为一致：连着记同类账目很常见）。
+     * 全程不碰仓储。
+     */
+    fun onEditCancelled() {
+        _uiState.update {
+            it.copy(editing = null, amountText = "", noteText = "", amountError = null, failure = null)
+        }
+    }
+
+    /** 用户确认 —— 真正删除（物理删除，不可恢复，见 `ADR-0005`）。 */
+    fun onDeleteConfirmed() {
+        val target = _uiState.value.pendingDelete ?: return
+
+        viewModelScope.launch {
+            when (val result = deleteEntry(target.id)) {
+                is Outcome.Ok -> {
+                    _uiState.update {
+                        it.copy(
+                            pendingDelete = null,
+                            deletedNotice = true,
+                            entriesRevision = it.entriesRevision + 1,
+                        )
+                    }
+                    refreshEntries()
+                }
+                is Outcome.Err -> _uiState.update {
+                    // 删除失败时**保留** pendingDelete：让用户能重试，而不是以为删掉了
+                    it.copy(failure = result.error.asSaveFailure())
+                }
+            }
+        }
+    }
+
+    fun onSave() {
+        val current = _uiState.value
+        val amount = when (val parsed = parseYuanToMoney(current.amountText)) {
+            is AmountInput.Invalid -> {
+                _uiState.update { it.copy(amountError = parsed.error) }
+                return
+            }
+            is AmountInput.Valid -> parsed.money
+        }
+
+        // 备注长度先判一次：`Note` 的 init 是**抛异常**的（值对象自校验），
+        // 而「用户输入太长」是正常路径，不该以异常的形式走到界面。
+        // 值对象那一层不会因此少 —— 它仍然保护所有其它调用方。
+        val trimmedNote = current.noteText.trim()
+        if (trimmedNote.codePointCount(0, trimmedNote.length) > Note.MAX_CODE_POINTS) {
+            _uiState.update { it.copy(failure = SaveFailure.NoteTooLong) }
+            return
+        }
+        val note = if (trimmedNote.isEmpty()) null else Note(trimmedNote)
+
+        _uiState.update { it.copy(isSaving = true, failure = null) }
+
+        viewModelScope.launch {
+            val result = persist(current, amount, note)
+
+            when (result) {
+                is Outcome.Ok -> {
+                    _uiState.update {
+                        // 方向与分类保留（连着记几笔同类支出很常见），金额与备注清空；
+                        // 编辑态也一并退出（AC-1：保存后回到"记一笔"形态）；
+                        // 修订号 +1：让组合根知道"账本变了"（合计要重算，AC-5）
+                        it.copy(
+                            amountText = "",
+                            noteText = "",
+                            editing = null,
+                            isSaving = false,
+                            failure = null,
+                            entriesRevision = it.entriesRevision + 1,
+                        )
+                    }
+                    refreshEntries()
+                }
+                is Outcome.Err -> _uiState.update {
+                    // 失败时**保留编辑态**：用户能改完再试，而不是以为改动生效了
+                    it.copy(isSaving = false, failure = result.error.asSaveFailure())
+                }
+            }
+        }
+    }
+
+    /**
+     * 把表单当前的内容落库：**编辑态走"替换"，否则走"新增"**。
+     *
+     * 两者都归一成 `Outcome<Unit>`，因为之后要做的事完全一样（清表单或报错）。
+     * 抽成独立函数的直接原因是 `onSave` 太长被 detekt 拦下，
+     * 但这一刀切得是对的：它把"点保存会发生什么"与"保存之后界面怎么变"分开了。
+     *
+     * 编辑目标不存在时（`BR-5`）返回 `EntryNotFound` —— 界面会显示"这条记录已经不在了"。
+     */
+    private suspend fun persist(
+        current: LedgerUiState,
+        amount: Money,
+        note: Note?,
+    ): Outcome<Unit> {
+        val editing = current.editing
+
+        return if (editing != null) {
+            when (
+                val revised = reviseEntry(
+                    target = editing,
+                    direction = current.direction,
+                    amount = amount,
+                    categoryId = current.selectedCategoryId,
+                    occurredAt = current.occurredAt,
+                    note = note,
+                )
+            ) {
+                is Outcome.Err -> Outcome.Err(revised.error)
+                is Outcome.Ok -> Outcome.Ok(Unit)
+            }
+        } else {
+            when (
+                val recorded = recordEntry(
+                    direction = current.direction,
+                    amount = amount,
+                    categoryId = current.selectedCategoryId,
+                    occurredAt = current.occurredAt,
+                    note = note,
+                )
+            ) {
+                is Outcome.Err -> Outcome.Err(recorded.error)
+                is Outcome.Ok -> Outcome.Ok(Unit)
+            }
+        }
+    }
+
+    private fun refreshCategories() {
+        viewModelScope.launch {
+            when (val result = loadCategories()) {
+                is Outcome.Ok -> _uiState.update { it.copy(allCategories = result.value) }
+                // 读不到分类不该打断记账：状态里已有预置清单，界面照常能用
+                is Outcome.Err -> Unit
+            }
+        }
+    }
+
+    private fun refreshEntries() {
+        viewModelScope.launch {
+            when (val result = loadEntries()) {
+                is Outcome.Ok -> _uiState.update {
+                    it.copy(
+                        entries = result.value.entries,
+                        // 跳过了几条读不出来的行 —— 要一路传到界面去说（REQ-006/AC-3），
+                        // 而且带上整行，用户才能处理它们（REQ-008）
+                        unreadableRows = result.value.unreadableRows,
+                    )
+                }
+                // REQ-006/AC-2：读失败要说读的事。原来的文案是"保存失败…这笔没有记上"，
+                // 方向说错了 —— 用户会去排查自己刚才那次保存
+                is Outcome.Err -> _uiState.update { it.copy(failure = SaveFailure.LoadFailed) }
+            }
+        }
+    }
+
+    private fun DomainError.asSaveFailure(): SaveFailure =
+        if (this == DomainError.Technical.Storage) SaveFailure.Storage else SaveFailure.Rejected(this)
+
+    /**
+     * 分 → 表单里的"元"文本（`12.50`）。
+     *
+     * **不经过浮点**：`12.50` 元 = 1250 分，用整数除与取余拼字符串，
+     * 所以"填进表单再解析回来"必然得到同一个金额（`AC-2` 的往返不会悄悄改数）。
+     * 与 `Money.toString()` 的区别只是不带 `¥` —— 输入框里不该出现货币符号。
+     */
+    private fun Money.toPlainYuanText(): String {
+        val yuan = cents / 100
+        val fen = (cents % 100).toString().padStart(2, '0')
+        return "$yuan.$fen"
+    }
+}

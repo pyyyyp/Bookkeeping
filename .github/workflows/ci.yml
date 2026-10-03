@@ -1,0 +1,165 @@
+# CI 门禁（T-004）
+#
+# 目标：把「提交前门禁」与「追溯矩阵完整性」从人的自觉变成机器的强制（原则 P4）。
+#
+# ⚠️ 诚实声明：本文件**已在真实 runner 上运行过**（2026-10-02，
+# https://github.com/pyyyyp/Bookkeeping）。前三次运行的结论：
+#   #1 / #2  失败在 `android-actions/setup-android@v3`。GitHub 的 job 日志需鉴权下载
+#            （匿名 API 返回 403），所以**根因未证实**；但 check-run 注解显示该 action
+#            属于「target 到 Node 20、被强制跑在 Node 24 上」的那一批。
+#   #3       改为自己准备 SDK 后，失败在 **exit code 127 = 命令未找到**：runner 上
+#            `sdkmanager` 不在 PATH。（诊断来源：check-run 注解 API，公开仓库可匿名读——
+#            这也是本项目在 CI 里用 ::warning:: 发关键信息的原因。）
+#   #4 (本版) PATH 找不到就在镜像里找，再找不到就**从 Google 的 repository 清单推导**
+#            cmdline-tools 文件名下载，不写死 build 号。
+#
+# 仍未验证：android-37.0 能否装上、各步实际耗时。
+# 已知技术债：checkout@v4 / upload-artifact@v4 / setup-gradle@v4 仍 target Node 20
+#            （最新主版本分别是 v7 / v7 / v6），会持续产生弃用告警，见 T-004 卡。
+#
+# 与 AGENTS.md 阶段 E 的对应关系（逐项一致，顺序也一致）：
+#   ./gradlew detekt                          → 「静态分析」
+#   ./gradlew lintDebug                       → 同上（AGENTS.md 把两者并列）
+#   ./gradlew verifyDomainPurity checkModuleDependencies → 「架构规则」
+#   ./gradlew testDebugUnitTest               → 「单测」（含 Konsist 架构断言）
+#   ./gradlew assembleDebug                   → 「构建」
+#   ./scripts/verify-traceability.ps1         → 追溯矩阵校验（T-004 新增）
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feat/**'
+      - 'fix/**'
+      - 'docs/**'
+      - 'refactor/**'
+  pull_request:
+  workflow_dispatch:
+
+# 同一分支上的新推送取消仍在跑的旧任务，省额度
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: 提交前门禁
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 装 JDK 21
+        # v4 已被上游标记为 deprecated 且不再更新（check-run 注解提示），故升到 v6
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # 缓存 Gradle 依赖与 wrapper 发行版，并提供构建扫描摘要
+      - name: 配置 Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: 准备 sdkmanager（刻意不依赖第三方 action）
+        # 为什么不用 `uses: android-actions/setup-android`：
+        # 首次推送时它在 @v3 上就失败了（该步骤 FAILED，其后全部 skipped）。GitHub 的失败日志
+        # 需要鉴权下载，我们读不到——**根因未证实**；但 check-run 注解显示它属于
+        # 「target 到 Node 20、被强制跑在 Node 24 上」的那批 action，与该仓库的 Node 24
+        # 迁移 issue 吻合。与其依赖一个失败时无法诊断的第三方 action，不如自己准备：
+        # 先找镜像里预装的，找不到就**从 Google 自己的 repository 清单推导文件名**再下载
+        # （不写死 build 号，否则迟早 404）。
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=${ANDROID_HOME:-<未设置>}"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-<未设置>}"
+          echo "PATH 上的 sdkmanager = $(command -v sdkmanager || echo '<无>')"
+          if command -v sdkmanager >/dev/null 2>&1; then
+            sdkmanager --version
+            exit 0
+          fi
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/android-sdk}}"
+          echo "候选 SDK 目录 = $SDK"
+          CAND="$(find "$SDK" -maxdepth 4 -type f -name sdkmanager 2>/dev/null | head -1 || true)"
+          if [ -z "$CAND" ]; then
+            ZIP="$(curl -sS https://dl.google.com/android/repository/repository2-3.xml \
+                   | grep -o 'commandlinetools-linux-[0-9]*_latest\.zip' | head -1)"
+            echo "::warning::镜像里没有 cmdline-tools，改为下载 $ZIP"
+            mkdir -p "$SDK/cmdline-tools"
+            curl -sSLo /tmp/cmdline-tools.zip "https://dl.google.com/android/repository/$ZIP"
+            unzip -q /tmp/cmdline-tools.zip -d "$SDK/cmdline-tools"
+            mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+            CAND="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          echo "找到 sdkmanager: $CAND"
+          # job 日志要鉴权才能下载，而 check-run 注解可以匿名读——所以关键信息用警告发出去
+          echo "::warning::sdkmanager=$CAND"
+          echo "$(dirname "$CAND")" >> "$GITHUB_PATH"
+
+      - name: 安装本工程需要的 Android SDK 组件
+        # compileSdk 37 由 Compose BOM 2026.09 的下限决定（见 ADR-0003 决策 3），
+        # 所以 android-37.0 必须显式安装，不能指望镜像里恰好有。
+        # 上一行对 $GITHUB_PATH 的追加要到**后续步骤**才生效，所以这里必须分成两步。
+        #
+        # 两条踩过的坑（都由 check-run 注解定位，见文件头）：
+        # 1. **不要 `set -e`**：它只给一个 exit 1，不告诉你断在哪条命令。
+        #    这里每条关键命令显式 `|| { echo "::error::..."; exit 1; }`，并用 ::warning:: 发面包屑。
+        # 2. `yes | sdkmanager --licenses` 在 `pipefail` 下会因 yes 收到 SIGPIPE 而整体判失败
+        #    —— 所以显式容忍它；真正的门是下面的 --install。
+        run: |
+          set -uo pipefail
+          echo "::warning::安装开始"
+          sdkmanager --version || { echo "::error::sdkmanager --version 失败"; exit 1; }
+          echo "::warning::版本检查通过"
+          (yes | sdkmanager --licenses > /dev/null) \
+            || echo "::warning::licenses 返回非零（可能是许可早已接受）"
+          echo "::warning::licenses 结束"
+          sdkmanager --install "platform-tools" "platforms;android-37.0" "build-tools;37.0.0" \
+            || { echo "::error::安装 android-37.0 / build-tools 失败"; exit 1; }
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/android-sdk}}"
+          echo "::warning::platforms = $(ls "$SDK/platforms" | tr '\n' ' ')"
+
+      - name: 确保 gradlew 可执行
+        # 本工程在 Windows 上开发，Git 里的执行位随时可能被重新加回文件时丢掉
+        # （已用 git update-index --chmod=+x 修正过一次）。这里再兜一次，
+        # 免得失败信息变成难以理解的 "Permission denied"。
+        run: chmod +x ./gradlew
+
+      - name: 静态分析（detekt）
+        run: ./gradlew detekt --console=plain
+
+      - name: Android Lint
+        run: ./gradlew lintDebug --console=plain
+
+      - name: 架构规则（R2 / R3 / R7 / R8）
+        run: ./gradlew verifyDomainPurity checkModuleDependencies --console=plain
+
+      - name: 单元测试（含 Konsist 架构断言 R2/R5/R6/R8/R10）
+        run: ./gradlew testDebugUnitTest --console=plain
+
+      - name: 构建 Debug APK
+        run: ./gradlew assembleDebug --console=plain
+
+      - name: 追溯矩阵校验
+        # 用 pwsh 而不是 bash：本机是 Windows，脚本只有一份（见脚本头部说明）。
+        # ubuntu runner 预装 PowerShell 7。
+        shell: pwsh
+        run: ./scripts/verify-traceability.ps1
+
+      - name: 失败时上传报告
+        # 报告是排查失败的入口；只在失败时上传，避免刷满存储
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          if-no-files-found: ignore
+          path: |
+            **/build/reports/**
+            **/build/test-results/**

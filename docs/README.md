@@ -65,5 +65,10 @@ Copy-Item docs\40-tasks\_TEMPLATE-TASK.md        docs\40-tasks\T-001-init-projec
 | 完成任务 | `90-trace/traceability.md` + 任务卡勾选 |
 | 发现未决问题 | `20-domain/open-questions.md` |
 | 修改发布流程 | `60-runbooks/release.md` |
+| **引入权限 / 数据收集 / 上传 / 新的本地存储** | **`PRIVACY.md`（同一提交内）** + 受影响上下文的 `REQ-*.md` + 新增 `ADR` |
+| **改变数据存放位置或导出方式** | **`PRIVACY.md`（同一提交内）** + 更新 `open-questions.md` 的 Q-006 |
+
+> `PRIVACY.md` 那一行是**硬要求**：它是「与代码对应的说明书」，不是愿景宣言。
+> 只在功能落地时才补写隐私说明，等于让使用者在不知情的情况下先跑了一段时间。
 
 **规则**：任何提交都必须至少触及一行文档。纯代码提交说明跳过了阶段 B。

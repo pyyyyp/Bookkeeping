@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  所有用户可见字符串必须放这里（AGENTS.md 第 7 节第 12 条：禁止硬编码用户可见字符串）。
+-->
+<resources>
+    <string name="app_name">记账宝</string>
+    <!-- 脚手架占位文案，首个真实界面落地后删除 -->
+    <string name="placeholder_home_message">工程骨架已就绪，界面待实现</string>
+</resources>

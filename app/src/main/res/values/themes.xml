@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Compose 应用只需要一个「无 ActionBar」的窗口主题；配色由 Compose 侧的
+  JizhangbaoTheme 决定。这里刻意不依赖 com.google.android.material，
+  避免为了一个 XML 主题多引一个大依赖。
+-->
+<resources>
+    <style name="Theme.Jizhangbao" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

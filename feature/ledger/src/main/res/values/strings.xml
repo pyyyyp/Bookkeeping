@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  用户可见字符串全部在这里（AGENTS.md 第 7 节第 12 条：禁止在代码里硬编码）。
+  ViewModel 与 UI 之间传递的是**错误枚举**，文案只在这一层映射——见 AmountInputError / SaveFailure。
+-->
+<resources>
+    <string name="ledger_title">记一笔</string>
+    <string name="ledger_amount_label">金额（元）</string>
+    <string name="ledger_direction_label">收支方向</string>
+    <string name="ledger_direction_expense">支出</string>
+    <string name="ledger_direction_income">收入</string>
+    <string name="ledger_category_label">分类</string>
+    <string name="ledger_date_label">发生日期</string>
+    <string name="ledger_note_label">备注（可选）</string>
+    <string name="ledger_save">保存</string>
+    <string name="ledger_saving">保存中…</string>
+    <string name="ledger_list_title">最近的账目</string>
+    <string name="ledger_list_empty">还没有记账。在上面记一笔试试。</string>
+    <string name="ledger_confirm">确定</string>
+    <string name="ledger_cancel">取消</string>
+
+    <!-- 删除：物理删除不可恢复（ADR-0005），所以对话框必须把后果说清楚 -->
+    <string name="ledger_delete">删除</string>
+    <string name="ledger_delete_title">删除这条记录？</string>
+    <string name="ledger_delete_message">删除后无法恢复。</string>
+    <string name="ledger_entry_deleted">已删除，这条记录不在账本里了。</string>
+
+    <!-- 编辑（REQ-003）：身份与录入时间不变，所以文案说的是"修改这条"，不是"另存一条" -->
+    <string name="ledger_edit">编辑</string>
+    <string name="ledger_editing">正在修改这条记录</string>
+    <string name="ledger_save_edit">保存修改</string>
+    <string name="ledger_edit_cancel">取消编辑</string>
+    <string name="ledger_error_entry_not_found">这条记录已经不在了（可能已被删除）</string>
+
+    <string name="ledger_error_amount_empty">请输入金额</string>
+    <string name="ledger_error_amount_not_a_number">金额只能是数字</string>
+    <string name="ledger_error_amount_too_many_decimals">金额最多两位小数</string>
+    <string name="ledger_error_amount_not_positive">金额必须大于 0</string>
+    <string name="ledger_error_category_required">请选择分类</string>
+    <string name="ledger_error_note_too_long">备注最多 200 个字</string>
+    <string name="ledger_error_storage">保存失败：本机数据库出错，这笔没有记上</string>
+    <!-- REQ-006/AC-2：读失败与写失败必须分开说，否则用户会去排查错方向 -->
+    <string name="ledger_error_load_failed">账目暂时读不出来：本机数据库出错</string>
+    <!-- REQ-006/AC-3：跳过坏数据必须伴随告知，不能让它看起来像"账目变少了" -->
+    <string name="ledger_unreadable_entries">有 %1$d 条记录读不出来（数据可能被外部改坏），已跳过；它们仍计入合计。</string>
+    <!-- REQ-008：提示不能是死路 —— 给一个"看得到 + 删得掉"的入口 -->
+    <string name="ledger_unreadable_manage">处理</string>
+    <string name="ledger_unreadable_title">有 %1$d 条记录读不出来</string>
+    <string name="ledger_unreadable_hint">它们仍在合计里（钱是事实）。删掉那一条，合计就会跟着变。</string>
+    <string name="ledger_unreadable_no_reason">（域校验没有给出原因）</string>
+    <string name="ledger_unreadable_discard">删除这条</string>
+    <string name="ledger_unreadable_confirm_title">删除这条读不出来的数据？</string>
+    <string name="ledger_unreadable_confirm_body">原始标识：%1$s\n\n这是物理删除，删掉不可恢复。删掉之后它的钱不再计入合计。</string>
+    <string name="ledger_unreadable_confirm_delete">删除</string>
+    <string name="ledger_unreadable_confirm_cancel">取消</string>
+    <!-- REQ-007 分类下钻：标题必须说清"哪个分类、哪个月"，否则用户不知道自己在看什么 -->
+    <string name="ledger_category_entries_title">%1$s · %2$s</string>
+    <string name="ledger_category_entries_empty">这个月这一类没有支出</string>
+    <string name="ledger_category_entries_failed">这些记录暂时读不出来：本机数据库出错</string>
+    <string name="ledger_category_entries_close">关闭</string>
+    <string name="ledger_error_rejected">这条记录没有被接受，请检查填写内容</string>
+
+    <!-- 分类管理（REQ-004）：入口在记账页顶部 -->
+    <string name="ledger_categories">分类</string>
+    <string name="category_manager_title">分类管理</string>
+    <string name="category_manager_close">关闭</string>
+    <string name="category_new_name_label">新分类名字</string>
+    <string name="category_direction_label">用于</string>
+    <string name="category_create">新增分类</string>
+    <string name="category_custom_title">我的分类</string>
+    <string name="category_custom_empty">还没有自定义分类。在上面加一个试试。</string>
+    <string name="category_preset_title">内置分类</string>
+    <!-- 说清楚"为什么没有按钮"，而不是让按钮点了没反应（AC-7） -->
+    <string name="category_preset_readonly">内置分类不能改名或归档 —— 否则"恢复默认"就说不清该恢复成什么了。</string>
+    <string name="category_rename">改名</string>
+    <string name="category_rename_label">新名字</string>
+    <string name="category_rename_confirm">确定</string>
+    <!-- 用「归档」而不是「删除」：历史条目引用了这个分类（ADR-0009） -->
+    <string name="category_archive">归档</string>
+    <string name="category_restore">恢复</string>
+    <string name="category_archived_mark">（已归档）</string>
+    <string name="category_error_name_invalid">名字不能为空，最多 20 个字</string>
+    <string name="category_error_name_taken">已经有同名的分类了</string>
+    <string name="category_error_not_found">这个分类已经不在了</string>
+    <string name="category_error_storage">操作失败：本机数据库出错</string>
+</resources>

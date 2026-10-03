@@ -1,0 +1,26 @@
+# detekt 配置：**以官方默认规则为基线**，这里只写有理由的偏离。
+#
+# 规矩：每加一条偏离，必须写清楚「为什么默认规则在这里是错的」。
+# 没有理由的偏离等于悄悄关掉检查——那比不装 detekt 更糟，因为它给了虚假的安全感。
+#
+# 由 build-logic 的 jizhangbao.architecture 插件统一指向本文件（见 ADR-0004、T-006）。
+
+naming:
+  FunctionNaming:
+    # Compose 的 @Composable 函数**必须**用 PascalCase —— 这是官方约定：
+    # 大写开头才能在调用处一眼区分「这是一个 Composable」与「这是一个普通函数」。
+    # detekt 的默认命名规则不知道这条约定，会把每个 Composable 都报成违规。
+    #
+    # 注意：这条豁免只对带 @Composable 注解的函数生效，普通函数仍受默认规则约束。
+    ignoreAnnotated: ['Composable']
+
+complexity:
+  TooManyFunctions:
+    # ViewModel 的形态就是「每个用户动作一个方法」：改金额、换方向、选分类、改日期、
+    # 改备注、保存、请求删除、取消删除、确认删除…… 默认阈值（11）对**状态持有者**这类
+    # 天然多入口的类不适用，会把「正常」报成「该拆了」。
+    #
+    # 为什么是定向豁免而不是调高阈值：全局调高会放过真正臃肿的类；
+    # 只对 @HiltViewModel 生效，其它类仍受默认阈值约束。
+    # 若某个 ViewModel 真的臃肿，仍会由 **方法长度**、**圈复杂度**、**参数个数**等规则拦下——这里放开的只是「个数」。
+    ignoreAnnotated: ['HiltViewModel']
