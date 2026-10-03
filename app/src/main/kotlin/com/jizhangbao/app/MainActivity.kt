@@ -21,6 +21,7 @@ import com.jizhangbao.core.ui.theme.JizhangbaoTheme
 import com.jizhangbao.insight.presentation.MonthlyTotalsRoute
 import com.jizhangbao.ledger.presentation.LedgerCategoryEntriesDialog
 import com.jizhangbao.ledger.presentation.LedgerRoute
+import com.jizhangbao.payroll.presentation.PayslipScreen
 import com.jizhangbao.worklog.presentation.WorklogScreen
 import java.time.YearMonth
 import dagger.hilt.android.AndroidEntryPoint
@@ -88,6 +89,7 @@ private fun HomeScreen() {
         when (tab) {
             HomeTab.LEDGER -> LedgerTab()
             HomeTab.WORKLOG -> WorklogScreen()
+            HomeTab.PAYSLIP -> PayslipScreen()
         }
     }
 }
@@ -96,6 +98,7 @@ private fun HomeScreen() {
 private enum class HomeTab(val labelRes: Int) {
     LEDGER(R.string.tab_ledger),
     WORKLOG(R.string.tab_worklog),
+    PAYSLIP(R.string.tab_payslip),
 }
 
 @Composable

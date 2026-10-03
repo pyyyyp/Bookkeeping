@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 工资单页（REQ-017）。用户可见文案一律在这里，代码里不硬编码（R12）。 -->
+
+    <string name="payslip_title">工资单</string>
+
+    <!-- 月薪（AC-1） -->
+    <string name="payslip_salary_title">我的月薪</string>
+    <string name="payslip_salary_none">这个月没有可用的月薪：要么还没配过，要么配的生效日期晚于本月 1 号。在下面配一份、把生效日期填早一点（例如上个月），这个月就能算了。</string>
+    <string name="payslip_salary_current">月薪 %1$s（%2$s 起）</string>
+    <string name="payslip_salary_amount">金额（元）</string>
+    <string name="payslip_salary_effective_from">生效日期（yyyy-MM-dd）</string>
+    <string name="payslip_salary_save">保存月薪</string>
+    <string name="payslip_salary_hint_raise">涨薪就再存一份新的：历史月份的工资不会被改掉。</string>
+
+    <!-- 月份（AC-5） -->
+    <string name="payslip_previous_month">上一月</string>
+    <string name="payslip_next_month">下一月</string>
+    <string name="payslip_month">%1$d 年 %2$d 月</string>
+
+    <!-- 合计与差额（AC-2 / AC-4） -->
+    <string name="payslip_daily_rate">日薪（月薪 ÷ 21.75）</string>
+    <string name="payslip_amount_due">应付合计</string>
+    <string name="payslip_difference">与月薪的差额</string>
+    <string name="payslip_difference_explain">21.75 是**年平均值**（(365−104)÷12），所以单月的日收入之和不会正好等于月薪 —— 差多少是真实的，不是算错。</string>
+    <string name="payslip_holiday_data_missing">这一年还没有节假日数据，节假日按周末规则推定。</string>
+
+    <!-- 逐日明细（AC-3） -->
+    <string name="payslip_days_title">逐日明细</string>
+    <string name="payslip_days_empty">这个月还没有可算的日子。</string>
+    <string name="payslip_day_row">%1$s · %2$s · %3$s · %4$s</string>
+    <string name="payslip_day_type_workday">工作日</string>
+    <string name="payslip_day_type_rest_day">休息日</string>
+    <string name="payslip_day_type_holiday">法定节假日</string>
+    <string name="payslip_multiplier">%1$d×</string>
+
+    <string name="payslip_storage_failed">本机数据库出错，这次改动没有保存</string>
+    <string name="payslip_dismiss">知道了</string>
+</resources>

@@ -87,6 +87,26 @@ internal val MIGRATION_3_4: Migration = object : Migration(3, 4) {
     }
 }
 
+/**
+ * `4 → 5`（`T-033` / `REQ-017/AC-1`）：新增月薪表 `monthly_salary`。
+ *
+ * 同样**只加表**。金额存"分"（INTEGER）、生效日期存**纪元日**（INTEGER）——
+ * 生效日期是"哪一天"而不是"哪一刻"，用纪元日不会引入一个不存在的时区问题。
+ */
+internal val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `monthly_salary` (" +
+                "`id` TEXT NOT NULL, " +
+                "`amountCents` INTEGER NOT NULL, " +
+                "`effectiveFromEpochDay` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`id`)" +
+                ")",
+        )
+    }
+}
+
 /** 全部迁移，按版本顺序。组合根装配数据库时一次性交给 Room。 */
 internal val ALL_MIGRATIONS: Array<Migration> =
-    arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+    arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
