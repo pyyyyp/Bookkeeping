@@ -98,15 +98,34 @@ object DailyIncomeCalculator {
                 absent = date in absentDays,
             )
         }
-        val total = Money.ofCents(incomes.sumOf { it.amount.cents })
+        // 汇总只走下面那一条路径：合计与差额的算法**只有一处**
+        return payslip(month = month, salary = salary, dailyRate = rate, days = incomes)
+    }
+
+    /**
+     * 用**已经算好的**逐日收入组装工资单。
+     *
+     * 存在的理由：日收入有时不是这里算的 —— 例如 `REQ-015` 的用例要先用**门槛**
+     * 判出"这天算不算加班"，再决定 `worked`。但**合计与差额的算法必须只有一处**，
+     * 否则两条路径迟早算出两个数（这正是本项目反复记录的那类漂移）。
+     */
+    fun payslip(
+        month: YearMonth,
+        salary: MonthlySalary,
+        dailyRate: Money,
+        days: List<DailyIncome>,
+        holidayDataMissing: Boolean = false,
+    ): Payslip {
+        val total = Money.ofCents(days.sumOf { it.amount.cents })
         return Payslip(
             month = month,
             salary = salary,
-            dailyRate = rate,
-            days = incomes,
+            dailyRate = dailyRate,
+            days = days,
             amountDue = total,
             // 不硬凑：差额如实显示（见 Payslip 的 KDoc）
             differenceFromSalary = SignedMoney.ofCents(total.cents - salary.amount.cents),
+            holidayDataMissing = holidayDataMissing,
         )
     }
 }
