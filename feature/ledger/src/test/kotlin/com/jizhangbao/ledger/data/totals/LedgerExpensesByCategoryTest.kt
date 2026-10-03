@@ -10,6 +10,7 @@ import com.jizhangbao.ledger.domain.model.Category
 import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.testing.FakeCategoryRepository
 import com.jizhangbao.ledger.testing.FakeLedgerEntryDao
+import com.jizhangbao.ledger.testing.RecordingLogger
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -29,7 +30,7 @@ class LedgerExpensesByCategoryTest {
 
     private val dao = FakeLedgerEntryDao()
     private val categories = FakeCategoryRepository()
-    private val reader = LedgerTotalsReaderImpl(dao, categories)
+    private val reader = LedgerTotalsReaderImpl(dao, categories, RecordingLogger())
 
     private val october = TimeRange(
         start = Instant.parse("2026-10-01T00:00:00Z"),

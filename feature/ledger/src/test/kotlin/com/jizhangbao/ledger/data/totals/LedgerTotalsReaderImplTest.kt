@@ -7,6 +7,7 @@ import com.jizhangbao.core.domain.TimeRange
 import com.jizhangbao.ledger.data.local.LedgerEntryEntity
 import com.jizhangbao.ledger.testing.FakeCategoryRepository
 import com.jizhangbao.ledger.testing.FakeLedgerEntryDao
+import com.jizhangbao.ledger.testing.RecordingLogger
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -27,7 +28,7 @@ import java.time.Instant
 class LedgerTotalsReaderImplTest {
 
     private val dao = FakeLedgerEntryDao()
-    private val reader = LedgerTotalsReaderImpl(dao, FakeCategoryRepository())
+    private val reader = LedgerTotalsReaderImpl(dao, FakeCategoryRepository(), RecordingLogger())
 
     private val october = TimeRange(
         start = Instant.parse("2026-10-01T00:00:00Z"),
