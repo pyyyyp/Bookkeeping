@@ -136,11 +136,11 @@
 | 未决问题数 | 15（2 红 / 10 黄 / 3 绿；`Q-005` 已关闭，本轮新增 `Q-021`） |
 | 已接受的 ADR 数 | **10**（ADR-0006 ~ ADR-0010：错误类型 / 数据层归属 / 跨上下文读模型 / 分类生命周期 / 日志） |
 | 限界上下文数 | 5（Ledger / Worklog / Payroll / Calendar / Insight） |
-| 工程任务数 | 22（**T-001 ~ T-023 全部完成**；`T-020` 发布收口，`T-022` 重构，`T-023` 下钻可改） |
+| 工程任务数 | 23（**T-001 ~ T-024 全部完成**；`T-020` 发布收口，`T-022` 重构，`T-023` 下钻可改，`T-024` 签名） |
 | 已建工程模块数 | **11**（1 个 Kotlin JVM + 9 个 Android Library + 1 个 Application） |
 | 领域层测试数 | **44**（`:core:domain:test`；⚠️ 这个数字以前是靠自己数、且**不在门禁里** —— `T-022` 修了门禁才量准） |
 | Android 侧测试数 | **192**（JVM 全绿：`core:testing` 6 + `feature:ledger` 169 + `feature:insight` 17）+ **14** 条仪器化 DAO 测试（真库，经 `am instrument` 运行） |
-| 可交付产物 | **v0.1.0**：`app-release-unsigned.apk`（**8.64 MB**）+ 侧载用的 `app-debug.apk`（12.51 MB）。APK 内**实测** `versionCode=1 versionName=0.1.0`（AGP 9 下不显式给版本号会是空字符串 —— 这正是 `AndroidApplicationConventionPlugin` 注释里那条实测记录）。数据库 `version = 2`，含迁移。发布检查清单逐项证据见 `docs/40-tasks/T-020-release-prep.md` |
+| 可交付产物 | **v0.1.0**：`app-release-unsigned.apk`（**8.64 MB**）+ 侧载用的 `app-debug.apk`（12.51 MB）。APK 内**实测** `versionCode=1 versionName=0.1.0`（AGP 9 下不显式给版本号会是空字符串 —— 这正是 `AndroidApplicationConventionPlugin` 注释里那条实测记录）。数据库 `version = 2`，含迁移。发布检查清单逐项证据见 `docs/40-tasks/T-020-release-prep.md`。⚠️ **`T-024` 之后**：已有签名配置，`assembleRelease` 产出**已签名**的 `app-release.apk`（8.66 MB，`apksigner` 验签通过）—— v0.1.0 那个包本身仍是未签名的（当时确实没有密钥） |
 
 ## 工程任务进度
 
@@ -170,6 +170,7 @@
 | T-021 | 最近几个月的小趋势（`REQ-010`，合计下面六行） | ✅ **已完成**（4 条 AC 全部真机验证；同样**不新端口**；已知代价：一次刷新打 9 次端口，测试逐字钉住） | `feat/T-021` |
 | T-022 | Insight 一次快照（重构，不改行为）+ 门禁修复 | ✅ **已完成**（端口 9 → 6；真机 dump 与重构前**逐字对比**全等；**顺带发现领域层 44 条测试从未进过门禁**并修好，其中还藏着一条错断言） | `refactor/T-022` |
 | T-023 | 下钻清单里能改能删（`REQ-011`） | ✅ **已完成**（5 条 AC 全部真机验证；**没有第二套改动流程** —— 二次确认与编辑表单都是账本页那一份） | `feat/T-023` |
+| T-024 | 签名与 release 打包 | ✅ **已完成**（`apksigner` 验签通过；**缺密钥也能构建**的降级路径也实测过；密钥不入库、不打印） | `feat/T-024` |
 
 **T-001 验收证据**：`:core:domain:build` BUILD SUCCESSFUL；
 14 个测试 0 失败；`compileClasspath` 中 Android 条目数为 **0**（R3 在依赖层面得证）。
