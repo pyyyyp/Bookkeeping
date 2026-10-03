@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.jizhangbao.core.domain.CategoryBreakdown
 import com.jizhangbao.core.domain.Outcome
 import com.jizhangbao.insight.application.LoadCategoryShareUseCase
+import com.jizhangbao.insight.application.LoadMonthlyComparisonUseCase
 import com.jizhangbao.insight.application.LoadMonthlyTotalsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +34,8 @@ import javax.inject.Inject
 internal class MonthlyTotalsViewModel @Inject constructor(
     private val loadMonthlyTotals: LoadMonthlyTotalsUseCase,
     private val loadCategoryShare: LoadCategoryShareUseCase,
+    /** `REQ-009`：与上月的环比。**不新端口**，只是同一个方法换个区间（`BR-5`）。 */
+    private val loadMonthlyComparison: LoadMonthlyComparisonUseCase,
     private val clock: Clock,
 ) : ViewModel() {
 
@@ -62,6 +65,14 @@ internal class MonthlyTotalsViewModel @Inject constructor(
                     // 查不到与"这个月没花钱"必须区分：前者是错误，后者是零
                     it.copy(isLoading = false, hasFailure = true)
                 }
+            }
+
+            // 环比在同一次刷新里取（REQ-009）：两段区间都由用例按**同一个 month** 算，
+            // 所以不会出现"合计是 10 月、环比是 9 月"这种同屏矛盾
+            when (val comparison = loadMonthlyComparison(month)) {
+                is Outcome.Ok -> _uiState.update { it.copy(comparison = comparison.value) }
+                // BR-4：读不出来就**不显示**环比 —— 拿 0 冒充"没有变化"比不显示更糟
+                is Outcome.Err -> _uiState.update { it.copy(comparison = null) }
             }
 
             // 占比在同一次刷新里取（REQ-005/AC-7）：翻月时两者必须一起变，

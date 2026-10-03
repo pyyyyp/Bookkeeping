@@ -42,6 +42,14 @@ value class SignedMoney private constructor(val cents: Long) {
     val isNegative: Boolean get() = cents < 0
 
     /**
+     * 绝对值（`REQ-009`）。
+     *
+     * 用于"少花 ¥X"这种**句子里已经带了方向**的场合：那时再显示负号
+     * 会读成"少了负的"。方向由文案表达、数额由这里表达，两者不重复。
+     */
+    val magnitude: SignedMoney get() = SignedMoney(if (cents < 0) -cents else cents)
+
+    /**
      * 展示用格式：负数带负号，正数与零不带正号。
      *
      * 不用浮点，理由与 [Money.toString] 相同。
