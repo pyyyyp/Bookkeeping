@@ -18,9 +18,15 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * - `1 → 2`（`T-012` / `REQ-004`）：新增自定义分类表 `category`。
  *   **只加表，不动 `ledger_entry`** —— 所以这次升级不可能碰到用户已有的账 ✓
  *   （`REQ-004/AC-9` 会在带真实数据的模拟器上验证这一点）。
+ * - `2 → 3`（`T-029` / `REQ-014/AC-6`）：新增工时表 `work_session`。
+ *   同样**只加表**（`REQ-014/AC-7` 真机验证）。
+ *   ⚠️ 这个实体带一个索引（查询按 `startedAtEpochMilli` 扫区间），
+ *   而 **Room 不会自动为迁移建索引** —— 漏掉建索引的语句时，迁移本身能过，
+ *   查询却会全表扫；schema 校验在带 `exportSchema` 的情况下**只在真机首次打开时才暴露**。
+ *   所以这里必须显式 `CREATE INDEX`，且索引名遵循 Room 的 `index_<表>_<列>` 约定。
  *
- * ⚠️ SQL 必须与 `CategoryEntity` 经 Room 生成的 schema **逐字对应**
- * （列名、类型、`NOT NULL`、主键）。对不上时 Room 会在**打开数据库时**
+ * ⚠️ SQL 必须与 `CategoryEntity` / `WorkSessionEntity` 经 Room 生成的 schema **逐字对应**
+ * （列名、类型、`NOT NULL`、主键、索引名）。对不上时 Room 会在**打开数据库时**
  * 用 `Migration didn't properly handle...` 报错 —— 那不是静默失败，但只有真跑一次才看得见，
  * 所以每次改表都要在真机上装一次新版本。
  */
@@ -39,5 +45,25 @@ internal val MIGRATION_1_2: Migration = object : Migration(1, 2) {
     }
 }
 
+internal val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `work_session` (" +
+                "`id` TEXT NOT NULL, " +
+                "`startedAtEpochMilli` INTEGER NOT NULL, " +
+                // 可空：Running 的时段还没有结束（状态机的一半不变量）
+                "`endedAtEpochMilli` INTEGER, " +
+                "`state` TEXT NOT NULL, " +
+                "PRIMARY KEY(`id`)" +
+                ")",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_work_session_startedAtEpochMilli` " +
+                "ON `work_session` (`startedAtEpochMilli`)",
+        )
+    }
+}
+
 /** 全部迁移，按版本顺序。组合根装配数据库时一次性交给 Room。 */
-internal val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
+internal val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)

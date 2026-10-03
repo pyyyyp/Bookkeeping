@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.jizhangbao.android.library)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 android {
@@ -8,8 +10,30 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
+    // core:common：日志接口（ADR-0010）。数据层的异常翻译要把原因记下来（REQ-006 的教训）。
+    implementation(project(":core:common"))
+
+    // 数据层：Room 实体 / DAO / 仓储实现（ADR-0007）
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    // DI：@Inject / @Binds 与生成代码
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit4)
+    // DAO 的挂起函数在测试里要 runBlocking
+    testImplementation(libs.kotlinx.coroutines.test)
+
+    // 仪器化测试（T-029）：DAO 的 SQL 只有真 SQLite 能验证。
+    // ⚠️ CI 跑不了它（runner 上没有模拟器），只能本机 `am instrument` —— 已知且已记录的缺口。
+    androidTestImplementation(libs.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    // androidTest 源集里那个测试专用的 @Database 也要 Room 生成实现
+    kspAndroidTest(libs.androidx.room.compiler)
 }
 
 // Worklog 工时（核心域）：记录工作时段，给出**出勤事实**。

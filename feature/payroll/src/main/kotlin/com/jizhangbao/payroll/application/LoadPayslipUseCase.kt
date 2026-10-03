@@ -44,7 +44,7 @@ class LoadPayslipUseCase @Inject constructor(
      * @param upTo 算到哪一天为止（通常传"今天"）。
      *   **未来的日子不参与**：把还没到的日子当成"没出勤"会让工资单凭空少一截。
      */
-    operator fun invoke(month: YearMonth, salary: MonthlySalary, upTo: LocalDate): Payslip {
+    suspend operator fun invoke(month: YearMonth, salary: MonthlySalary, upTo: LocalDate): Payslip {
         val first = month.atDay(1)
         // 问一个还没开始的月份的工资单是调用方的 bug，不是业务结果
         require(!upTo.isBefore(first)) { "不能算一个还没开始的月份：$month（算到 $upTo）" }
