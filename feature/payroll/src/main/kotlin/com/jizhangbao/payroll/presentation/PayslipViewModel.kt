@@ -96,10 +96,14 @@ class PayslipViewModel @Inject constructor(
             val month = _state.value.month
             val thisMonth = YearMonth.now(clock)
             val salaryResult = salaries.effectiveAt(month.atDay(1))
+            val everResult = salaries.anyConfigured()
             val salary = (salaryResult as? Outcome.Ok)?.value
             _state.update { current ->
                 current.copy(
                     salary = salary,
+                    // 「这个月没有月薪」有两种，给用户的话完全不同（T-033 的真机缺口）
+                    salaryEverConfigured = (everResult as? Outcome.Ok)?.value
+                        ?: current.salaryEverConfigured,
                     // ⚠️ 未来月份**不调用**用例：它会 require 失败（那是对调用方的保护），
                     // 而这里在它之前就挡住了
                     payslip = if (salary != null && !month.isAfter(thisMonth)) {

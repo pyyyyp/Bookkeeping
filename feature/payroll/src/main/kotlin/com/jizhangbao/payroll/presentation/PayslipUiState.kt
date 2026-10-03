@@ -25,6 +25,14 @@ data class PayslipUiState(
     val salary: MonthlySalary? = null,
     /** 该月的工资单；没有月薪时为 `null`（算不出来）。 */
     val payslip: Payslip? = null,
+    /**
+     * 是否**配过任何一份**月薪（`T-034`）。
+     *
+     * ⚠️ 它必须和 [salary] 一起才能说对话：`salary == null` 有**两种**原因 ——
+     * 从没配过（"去下面配一份"）与配了但该月还没生效（"把生效日期填早一点"）。
+     * `T-033` 的真机缺口就是只有 [salary] 一个信息，于是"刚保存完"显示成"还没有配月薪"。
+     */
+    val salaryEverConfigured: Boolean = false,
     val isBusy: Boolean = false,
     val notice: PayslipNotice? = null,
 )

@@ -26,4 +26,12 @@ interface MonthlySalaryRepository {
      * 看起来正常、实际全错的工资单（`REQ-017/BR-2`）。
      */
     suspend fun effectiveAt(date: LocalDate): Outcome<MonthlySalary?>
+
+    /**
+     * 是否**配过任何一份**月薪（`T-034`）。
+     *
+     * `effectiveAt` 返回空有**两种**原因 —— 从没配过、配了但还没到生效日期 ——
+     * 而给用户的话完全不同（"去配一份" vs "把生效日期填早一点"）。所以界面必须能分辨它们。
+     */
+    suspend fun anyConfigured(): Outcome<Boolean>
 }

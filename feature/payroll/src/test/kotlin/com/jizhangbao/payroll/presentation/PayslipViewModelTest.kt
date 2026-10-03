@@ -75,6 +75,8 @@ class PayslipViewModelTest {
             stored.filter { !it.effectiveFrom.isAfter(date) }
                 .maxByOrNull { it.effectiveFrom },
         )
+
+        override suspend fun anyConfigured(): Outcome<Boolean> = Outcome.Ok(stored.isNotEmpty())
     }
 
     private fun viewModel(
@@ -139,6 +141,26 @@ class PayslipViewModelTest {
         assertNull(viewModel.state.value.salary)
         // 关键：是 null，不是"一份全 0 的工资单"
         assertNull(viewModel.state.value.payslip)
+        // 而且知道"从没配过" —— 界面因此能说"去配一份"（T-034）
+        assertFalse(viewModel.state.value.salaryEverConfigured)
+    }
+
+    @Test
+    fun `T-034 配了但该月未生效时_状态说得出区别`() = runTest {
+        // 生效日期是 10-14，而当前月是 10 月 → effectiveAt(10-01) 按 Q-019 正确地返回"没有"
+        val salaries = FakeSalaries(
+            mutableListOf(
+                MonthlySalary(amount = Money.ofCents(800_000), effectiveFrom = LocalDate.of(2026, 10, 14)),
+            ),
+        )
+        val viewModel = viewModel(salaries)
+
+        // 该月确实没有可用月薪 —— 规则是对的
+        assertNull(viewModel.state.value.salary)
+        assertNull(viewModel.state.value.payslip)
+        // ⚠️ 但**配过**：界面必须说"把生效日期填早一点"，而不是"还没有配月薪"
+        // （这正是 T-033 真机冒烟抓到的缺口：刚保存完却显示"还没配"）
+        assertTrue(viewModel.state.value.salaryEverConfigured)
     }
 
     // ---- AC-2 / AC-6：算出来的是什么 ----

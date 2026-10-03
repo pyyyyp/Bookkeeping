@@ -25,6 +25,15 @@ interface MonthlySalaryDao {
     )
     suspend fun effectiveAt(epochDay: Long): MonthlySalaryEntity?
 
+    /**
+     * 一共配过几份（`T-034`）。
+     *
+     * ⚠️ 它分辨的是"**从没配过**"与"配了但该月未生效" —— 这两种情况要给用户完全不同的话
+     * （`T-033` 的真机缺口：刚保存完却显示"还没有配月薪"，看起来像保存失败）。
+     */
+    @Query("SELECT COUNT(*) FROM monthly_salary")
+    suspend fun count(): Int
+
     @Query("SELECT * FROM monthly_salary ORDER BY effectiveFromEpochDay DESC")
     suspend fun all(): List<MonthlySalaryEntity>
 }
