@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.jizhangbao.android.library)
+    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
@@ -10,12 +11,28 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
+    // core:common：日志接口（ADR-0010）。仓储的异常翻译要把原因记下来。
+    implementation(project(":core:common"))
+
+    // 界面（T-033 / REQ-017）：工资单页与月薪配置
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.material3)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.hilt.navigation.compose)
+
+    // 数据层：月薪表（ADR-0007）
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     // DI：工资单用例要能被 :app 装配（ADR-0008 的读通路；它消费 Calendar 与 Worklog 两个端口）
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit4)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
 
 // Payroll 薪资（核心域）：月薪 → 日薪 → 每日收入 → 工资单。

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.jizhangbao.ledger.data.local.CategoryDao
 import com.jizhangbao.ledger.data.local.LedgerEntryDao
+import com.jizhangbao.payroll.data.local.MonthlySalaryDao
 import com.jizhangbao.worklog.data.local.WorkSessionDao
 import com.jizhangbao.worklog.data.local.WorkplaceDao
 import dagger.Module
@@ -55,6 +56,10 @@ internal object DatabaseModule {
     @Provides
     fun provideWorkplaceDao(database: JizhangbaoDatabase): WorkplaceDao =
         database.workplaceDao()
+
+    @Provides
+    fun provideMonthlySalaryDao(database: JizhangbaoDatabase): MonthlySalaryDao =
+        database.monthlySalaryDao()
 
     /**
      * 系统时钟。注入而不是各处直接 `Instant.now()`：

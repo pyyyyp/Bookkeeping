@@ -10,4 +10,5 @@
     <!-- 顶部页面切换（T-031 / Q-028：暂时不引入导航库，用一个 when + TabRow） -->
     <string name="tab_ledger">记账</string>
     <string name="tab_worklog">工时</string>
+    <string name="tab_payslip">工资单</string>
 </resources>
