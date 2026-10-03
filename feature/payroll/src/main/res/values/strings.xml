@@ -6,7 +6,8 @@
 
     <!-- 月薪（AC-1） -->
     <string name="payslip_salary_title">我的月薪</string>
-    <string name="payslip_salary_none">这个月没有可用的月薪：要么还没配过，要么配的生效日期晚于本月 1 号。在下面配一份、把生效日期填早一点（例如上个月），这个月就能算了。</string>
+    <string name="payslip_salary_never_configured">还没有配月薪。在下面配一份，这个月就能算了。</string>
+    <string name="payslip_salary_not_effective_this_month">这个月没有可用的月薪：你配的那份生效日期晚于本月 1 号。再配一份、把生效日期填早一点（例如上个月），这个月就能算了。</string>
     <string name="payslip_salary_current">月薪 %1$s（%2$s 起）</string>
     <string name="payslip_salary_amount">金额（元）</string>
     <string name="payslip_salary_effective_from">生效日期（yyyy-MM-dd）</string>

@@ -67,6 +67,7 @@ fun PayslipScreen(
         )
         SalarySection(
             salary = state.salary,
+            salaryEverConfigured = state.salaryEverConfigured,
             enabled = !state.isBusy,
             onSave = viewModel::saveSalary,
         )
@@ -98,6 +99,7 @@ fun PayslipScreen(
 @Composable
 private fun SalarySection(
     salary: MonthlySalary?,
+    salaryEverConfigured: Boolean,
     enabled: Boolean,
     onSave: (String, String) -> Unit,
 ) {
@@ -110,8 +112,16 @@ private fun SalarySection(
             style = MaterialTheme.typography.titleMedium,
         )
         if (salary == null) {
+            // ⚠️ 两种"没有"说不同的话：从没配过 vs 配了但该月未生效。
+            // T-033 的真机缺口就是这两句被合成了一句，于是"刚保存成功"看起来像"保存失败"。
             Text(
-                text = stringResource(R.string.payslip_salary_none),
+                text = stringResource(
+                    if (salaryEverConfigured) {
+                        R.string.payslip_salary_not_effective_this_month
+                    } else {
+                        R.string.payslip_salary_never_configured
+                    },
+                ),
                 style = MaterialTheme.typography.bodyMedium,
             )
         } else {

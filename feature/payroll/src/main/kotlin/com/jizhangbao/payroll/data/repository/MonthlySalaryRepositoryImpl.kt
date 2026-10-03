@@ -34,6 +34,9 @@ class MonthlySalaryRepositoryImpl @Inject constructor(
             dao.effectiveAt(date.toEpochDay())?.let(MonthlySalaryMapper::toDomain)
         }
 
+    override suspend fun anyConfigured(): Outcome<Boolean> =
+        storageOutcome("读取月薪份数") { dao.count() > 0 }
+
     private suspend fun <T> storageOutcome(what: String, block: suspend () -> T): Outcome<T> =
         runCatching { block() }.fold(
             onSuccess = { Outcome.Ok(it) },
