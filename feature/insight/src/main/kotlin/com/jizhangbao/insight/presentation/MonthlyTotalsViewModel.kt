@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.jizhangbao.core.domain.CategoryBreakdown
 import com.jizhangbao.core.domain.Outcome
 import com.jizhangbao.insight.application.LoadCategoryShareUseCase
+import com.jizhangbao.core.domain.MonthlyTrend
 import com.jizhangbao.insight.application.LoadMonthlyComparisonUseCase
 import com.jizhangbao.insight.application.LoadMonthlyTotalsUseCase
+import com.jizhangbao.insight.application.LoadMonthlyTrendUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +38,8 @@ internal class MonthlyTotalsViewModel @Inject constructor(
     private val loadCategoryShare: LoadCategoryShareUseCase,
     /** `REQ-009`：与上月的环比。**不新端口**，只是同一个方法换个区间（`BR-5`）。 */
     private val loadMonthlyComparison: LoadMonthlyComparisonUseCase,
+    /** `REQ-010`：最近几个月的趋势。同样**不新端口** —— 同一个方法问六次。 */
+    private val loadMonthlyTrend: LoadMonthlyTrendUseCase,
     private val clock: Clock,
 ) : ViewModel() {
 
@@ -73,6 +77,14 @@ internal class MonthlyTotalsViewModel @Inject constructor(
                 is Outcome.Ok -> _uiState.update { it.copy(comparison = comparison.value) }
                 // BR-4：读不出来就**不显示**环比 —— 拿 0 冒充"没有变化"比不显示更糟
                 is Outcome.Err -> _uiState.update { it.copy(comparison = null) }
+            }
+
+            // 趋势（REQ-010）：以**用户当前看的那个月**为最后一个月，所以翻月时一起变。
+            // 与合计、环比、占比都在同一次刷新里取，避免"合计是 10 月、趋势最后一行是 9 月"
+            when (val trend = loadMonthlyTrend(month)) {
+                is Outcome.Ok -> _uiState.update { it.copy(trend = trend.value) }
+                // BR-4：任一个月读不出来就整条不显示 —— "六个月都是零"比不显示糟得多
+                is Outcome.Err -> _uiState.update { it.copy(trend = MonthlyTrend.EMPTY) }
             }
 
             // 占比在同一次刷新里取（REQ-005/AC-7）：翻月时两者必须一起变，
