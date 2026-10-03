@@ -46,6 +46,19 @@ interface LedgerEntryRepository {
     suspend fun remove(id: LedgerEntryId): Outcome<Unit>
 
     /**
+     * 删掉一条**读不出来**的数据（`REQ-008`，用它的**原始主键**）。
+     *
+     * 为什么不能复用 [remove]：那个方法收的是 `LedgerEntryId`，而"读不出来"
+     * 的定义就是"它的标识根本不是合法 `LedgerEntryId`"。要删它，只能拿库里那一行的
+     * 原始字符串 —— 这也正是 `REQ-008` 要把它带出来的原因。
+     *
+     * **幂等**：那一行已经不在了，也算成功（返回 `Ok`）。这里与 [remove] 的
+     * `EntryNotFound` 不同 —— 那个语义是"你以为在改一条存在的条目"，
+     * 而这个方法的用途是"把一条坏数据清掉"，清掉了就是达成目的。
+     */
+    suspend fun discardUnreadableRow(rawId: String): Outcome<Unit>
+
+    /**
      * 最近 [limit] 条，**按发生时间倒序**（`REQ-001/AC-7`）。
      *
      * 返回 [RecentEntries] 而不是 `List<LedgerEntry>`：库里可能有**读不出来**的行

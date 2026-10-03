@@ -6,6 +6,7 @@ import com.jizhangbao.core.domain.Outcome
 import com.jizhangbao.core.domain.toTimeRange
 import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.RecentEntries
+import com.jizhangbao.ledger.domain.model.UnreadableRow
 import com.jizhangbao.ledger.testing.FakeLedgerEntryRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -53,8 +54,15 @@ class LoadCategoryEntriesUseCaseTest {
     @Test
     fun `坏行计数会一路传出来`() = runBlocking {
         // REQ-006/AC-3 的处理在下钻清单里同样生效，不能被用例吞掉
-        repository.inCategoryOutcome =
-            Outcome.Ok(RecentEntries(entries = emptyList(), unreadable = 2))
+        repository.inCategoryOutcome = Outcome.Ok(
+            RecentEntries(
+                entries = emptyList(),
+                unreadableRows = listOf(
+                    UnreadableRow(rawId = "bad-1", reason = "标识不是合法 UUID"),
+                    UnreadableRow(rawId = "bad-2", reason = "金额为负"),
+                ),
+            ),
+        )
 
         val result = useCase(categoryId = CategoryId("food"), range = month.toTimeRange(zone))
 

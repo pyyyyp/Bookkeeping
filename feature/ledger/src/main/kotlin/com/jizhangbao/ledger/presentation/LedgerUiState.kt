@@ -5,6 +5,7 @@ import com.jizhangbao.ledger.domain.model.Category
 import com.jizhangbao.ledger.domain.model.CategoryCatalog
 import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.LedgerEntry
+import com.jizhangbao.ledger.domain.model.UnreadableRow
 import java.time.Instant
 
 /**
@@ -23,12 +24,14 @@ internal data class LedgerUiState(
     val noteText: String,
     val entries: List<LedgerEntry>,
     /**
-     * 库里存在、但**读不出来**的条数（`REQ-006/AC-3`）。
+     * 库里存在、但**读不出来**的行（`REQ-006/AC-3` `REQ-008`）。
      *
-     * 界面在它 > 0 时如实说明 —— 静默跳过会让用户以为"账目变少了"，
+     * 界面在它非空时如实说明 —— 静默跳过会让用户以为"账目变少了"，
      * 而真实情况是"有一条读不出来"。它们仍计入合计（`BR-5`）。
+     *
+     * 带上**整行**（而不是只带计数）是 `REQ-008` 的要求：用户得能**指回那一行**才能处理它。
      */
-    val unreadableEntries: Int,
+    val unreadableRows: List<UnreadableRow>,
     val amountError: AmountInputError?,
     /** 保存失败（含领域规则拒绝与存储失败），由界面映射成提示。 */
     val failure: SaveFailure?,
@@ -100,7 +103,7 @@ internal data class LedgerUiState(
             occurredAt = now,
             noteText = "",
             entries = emptyList(),
-            unreadableEntries = 0,
+            unreadableRows = emptyList(),
             amountError = null,
             failure = null,
             isSaving = false,

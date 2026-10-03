@@ -150,6 +150,11 @@ class LedgerEntryRepositoryImplTest {
         assertEquals(2, entries.entries.size)
         assertEquals(1, entries.unreadable)
         assertTrue(entries.hasUnreadable)
+        // REQ-008/AC-1：**原始主键**必须活下来 —— 它是唯一能指回那一行的东西，
+        // 用户就是靠它把这条坏数据删掉的（别的字段都不可信，正是不可信才读不出来）
+        assertEquals("seed-pet", entries.unreadableRows.single().rawId)
+        // BR-4：原因照实带出来，不翻译成"数据损坏"
+        assertTrue(entries.unreadableRows.single().reason.isNotBlank())
     }
 
     @Test

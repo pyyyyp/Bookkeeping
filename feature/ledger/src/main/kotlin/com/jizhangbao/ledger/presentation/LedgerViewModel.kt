@@ -7,6 +7,7 @@ import com.jizhangbao.core.domain.Money
 import com.jizhangbao.core.domain.EntryDirection
 import com.jizhangbao.core.domain.Outcome
 import com.jizhangbao.ledger.application.DeleteLedgerEntryUseCase
+import com.jizhangbao.ledger.application.DiscardUnreadableRowUseCase
 import com.jizhangbao.ledger.application.LoadCategoriesUseCase
 import com.jizhangbao.ledger.application.LoadRecentEntriesUseCase
 import com.jizhangbao.ledger.application.RecordLedgerEntryUseCase
@@ -44,6 +45,8 @@ internal class LedgerViewModel @Inject constructor(
     private val deleteEntry: DeleteLedgerEntryUseCase,
     private val reviseEntry: ReviseLedgerEntryUseCase,
     private val loadCategories: LoadCategoriesUseCase,
+    /** `REQ-008`：把"读不出来的那一条"清掉 —— 与删一条正常条目是两个用例。 */
+    private val discardUnreadableRow: DiscardUnreadableRowUseCase,
     clock: Clock,
 ) : ViewModel() {
 
@@ -125,6 +128,31 @@ internal class LedgerViewModel @Inject constructor(
     /** 用户取消 —— 清掉待确认项，什么都不删。 */
     fun onDeleteCancelled() {
         _uiState.update { it.copy(pendingDelete = null) }
+    }
+
+    /**
+     * 删掉一条**读不出来**的数据（`REQ-008/AC-2`）。
+     *
+     * 二次确认在界面上（对话框里那一行要先点「删除」再确认），所以到这里就是"用户已经确认了"。
+     *
+     * 删完必须刷新：**合计要跟着变**（`AC-3`）—— 那条钱本来计入（`REQ-006/BR-5`），
+     * 删掉后就不该再算。这正是走 [refreshEntries] 的原因，它同时更新列表与坏行清单。
+     */
+    fun onUnreadableDiscarded(rawId: String) {
+        viewModelScope.launch {
+            when (val result = discardUnreadableRow(rawId)) {
+                is Outcome.Ok -> {
+                    refreshEntries()
+                    // ⚠️ 真机冒烟抓到的 bug：只 refreshEntries 是不够的 ——
+                    // 合计与占比住在 Insight，它们靠**组合根观察 entriesRevision**才重算。
+                    // 不 +1，界面会出现"坏行删掉了、钱还挂在合计里"（实测 ¥40168.45 不动）。
+                    // 这与 T-013 的分类改名漏刷新是同一个根因：**改了账本数据就要发同一个信号**。
+                    _uiState.update { it.copy(entriesRevision = it.entriesRevision + 1) }
+                }
+                // 读/写失败都要说清楚（REQ-006/AC-2 的同一原则）
+                is Outcome.Err -> _uiState.update { it.copy(failure = SaveFailure.LoadFailed) }
+            }
+        }
     }
 
     /**
@@ -298,8 +326,9 @@ internal class LedgerViewModel @Inject constructor(
                 is Outcome.Ok -> _uiState.update {
                     it.copy(
                         entries = result.value.entries,
-                        // 跳过了几条读不出来的行 —— 要一路传到界面去说（REQ-006/AC-3）
-                        unreadableEntries = result.value.unreadable,
+                        // 跳过了几条读不出来的行 —— 要一路传到界面去说（REQ-006/AC-3），
+                        // 而且带上整行，用户才能处理它们（REQ-008）
+                        unreadableRows = result.value.unreadableRows,
                     )
                 }
                 // REQ-006/AC-2：读失败要说读的事。原来的文案是"保存失败…这笔没有记上"，

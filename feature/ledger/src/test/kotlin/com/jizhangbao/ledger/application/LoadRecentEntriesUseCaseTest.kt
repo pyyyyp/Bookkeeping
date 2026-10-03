@@ -8,6 +8,7 @@ import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.LedgerEntry
 import com.jizhangbao.ledger.domain.model.LedgerEntryId
 import com.jizhangbao.ledger.domain.model.RecentEntries
+import com.jizhangbao.ledger.domain.model.UnreadableRow
 import com.jizhangbao.ledger.testing.FakeLedgerEntryRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -62,7 +63,12 @@ class LoadRecentEntriesUseCaseTest {
     @Test
     fun `读不出来的条数会一路传出来`() = runBlocking {
         // REQ-006/AC-3：仓储说"跳过了 1 条"，用例必须原样带出去，界面才可能告知用户
-        repository.recentOutcome = Outcome.Ok(RecentEntries(entries = listOf(entry(0, 100)), unreadable = 1))
+        repository.recentOutcome = Outcome.Ok(
+            RecentEntries(
+                entries = listOf(entry(0, 100)),
+                unreadableRows = listOf(UnreadableRow(rawId = "bad-1", reason = "标识不是合法 UUID")),
+            ),
+        )
 
         val result = useCase()
 
