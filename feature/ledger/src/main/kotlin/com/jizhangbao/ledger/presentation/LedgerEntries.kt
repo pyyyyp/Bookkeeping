@@ -1,7 +1,6 @@
 package com.jizhangbao.ledger.presentation
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
@@ -11,9 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.jizhangbao.ledger.R
-import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.LedgerEntry
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -21,41 +18,22 @@ import java.time.format.DateTimeFormatter
 private val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
 /**
- * 最近账目列表（`REQ-001/AC-7`）。
+ * 列表的**头部**：标题、读不出来的告知、删除结果、空状态（`REQ-001/AC-7` `REQ-006/AC-3`）。
+ *
+ * ## 为什么它和"行"分开了（`T-016`）
+ *
+ * 整页现在是一个 `LazyColumn`，头部与每一行都是它的 item —— 分开之后行才能被
+ * `items()` **按需组合**（此前列表是一个普通 `Column`，200 条会一次性全部组合）。
  *
  * 顺序由 SQL 保证（`ORDER BY occurredAtEpochMilli DESC`）——
  * 界面**不重新排序**，否则「显示的顺序」与「数据的顺序」会变成两套规则。
- *
- * 每行右侧有删除入口（`AC-8` `AC-9`）。它调用的 [onDelete] **只表达意图**：
- * 真正的删除要等用户在确认对话框里点了「删除」。
  */
 @Composable
-internal fun EntriesSection(
-    entries: List<LedgerEntry>,
-    zone: ZoneId,
+internal fun EntriesSectionHeader(
+    entriesCount: Int,
     showDeletedNotice: Boolean,
     /** 读不出来的条数（`REQ-006/AC-3`）：> 0 时必须说出来，不能让它看起来像"账目变少了"。 */
     unreadableEntries: Int,
-    onEdit: (LedgerEntry) -> Unit,
-    onDelete: (LedgerEntry) -> Unit,
-    /**
-     * 把分类标识翻成显示名。
-     *
-     * 由状态提供（而不是这里查内置清单）：`REQ-004` 之后分类可能是用户自建的，
-     * 而且**已归档的也要能显示**（否则历史条目会显示成 id）。
-     */
-    nameOf: (CategoryId) -> String,
-    /**
-     * 施加在列表容器上的修饰符。
-     *
-     * ⚠️ 这里**刻意不用 `LazyColumn`**：本区块的上层是一个可滚动的 `Column`
-     * （整页要能滚，否则表单占满一屏后列表行够不到），而 `LazyColumn` 嵌在
-     * 纵向可滚动父容器里会因为**无限高度约束直接崩**。
-     * 代价是失去懒加载：条目上限由 `LoadRecentEntriesUseCase.DEFAULT_LIMIT`（200）兜住，
-     * 在这个量级上可接受。真正需要分页时，应当把**整页**做成一个 LazyColumn
-     * （表头/表单/列表都作为它的 item），而不是把 LazyColumn 嵌回来。
-     */
-    modifier: Modifier = Modifier,
 ) {
     Text(
         text = stringResource(R.string.ledger_list_title),
@@ -80,31 +58,24 @@ internal fun EntriesSection(
         )
     }
 
-    if (entries.isEmpty()) {
+    if (entriesCount == 0) {
         Text(
             text = stringResource(R.string.ledger_list_empty),
             style = MaterialTheme.typography.bodyMedium,
         )
-    } else {
-        Column(
-            modifier = modifier,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            entries.forEach { entry ->
-                EntryRow(
-                    entry = entry,
-                    zone = zone,
-                    categoryName = nameOf(entry.categoryId),
-                    onEdit = { onEdit(entry) },
-                    onDelete = { onDelete(entry) },
-                )
-            }
-        }
     }
 }
 
+/**
+ * 列表里的一行（`REQ-001/AC-7`，编辑入口见 `REQ-003`，删除入口见 `AC-8` `AC-9`）。
+ *
+ * 两个回调都**只表达意图**：编辑只是把值填进表单（数据一个字不改），
+ * 删除还要等用户在确认对话框里点「删除」。
+ *
+ * `internal` 而不是 `private`：它现在由外层 `LazyColumn` 的 `items()` 直接使用（`T-016`）。
+ */
 @Composable
-private fun EntryRow(
+internal fun EntryRow(
     entry: LedgerEntry,
     zone: ZoneId,
     categoryName: String,
@@ -135,4 +106,3 @@ private fun EntryRow(
         }
     }
 }
-
