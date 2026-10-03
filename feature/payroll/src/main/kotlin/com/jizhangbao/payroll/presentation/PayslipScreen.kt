@@ -3,8 +3,10 @@ package com.jizhangbao.payroll.presentation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -23,7 +25,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.jizhangbao.core.ui.component.AmountText
+import com.jizhangbao.core.ui.component.AmountTone
+import com.jizhangbao.core.ui.component.SectionCard
+import com.jizhangbao.core.ui.component.SectionTitle
+import com.jizhangbao.core.ui.component.StatTile
+import com.jizhangbao.core.ui.theme.jizhangbaoColors
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jizhangbao.core.domain.DayType
@@ -106,11 +115,9 @@ private fun SalarySection(
     var amount by remember { mutableStateOf("") }
     var effectiveFrom by remember { mutableStateOf(LocalDate.now().toString()) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = stringResource(R.string.payslip_salary_title),
-            style = MaterialTheme.typography.titleMedium,
-        )
+    SectionCard(modifier = Modifier.fillMaxWidth()) {
+        SectionTitle(stringResource(R.string.payslip_salary_title))
+        Spacer(modifier = Modifier.height(6.dp))
         if (salary == null) {
             // ⚠️ 两种"没有"说不同的话：从没配过 vs 配了但该月未生效。
             // T-033 的真机缺口就是这两句被合成了一句，于是"刚保存成功"看起来像"保存失败"。
@@ -123,6 +130,7 @@ private fun SalarySection(
                     },
                 ),
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.jizhangbaoColors.muted,
             )
         } else {
             Text(
@@ -136,8 +144,10 @@ private fun SalarySection(
             Text(
                 text = stringResource(R.string.payslip_salary_hint_raise),
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.jizhangbaoColors.muted,
             )
         }
+        Spacer(modifier = Modifier.height(10.dp))
         OutlinedTextField(
             value = amount,
             onValueChange = { amount = it },
@@ -145,6 +155,7 @@ private fun SalarySection(
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
+        Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = effectiveFrom,
             onValueChange = { effectiveFrom = it },
@@ -152,13 +163,13 @@ private fun SalarySection(
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
+        Spacer(modifier = Modifier.height(10.dp))
         Button(
             onClick = { onSave(amount, effectiveFrom) },
             enabled = enabled,
         ) {
             Text(stringResource(R.string.payslip_salary_save))
         }
-        HorizontalDivider()
     }
 }
 
@@ -189,53 +200,70 @@ private fun MonthSection(
 
 @Composable
 private fun SummarySection(payslip: Payslip) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        KeyValue(stringResource(R.string.payslip_daily_rate), payslip.dailyRate.toString())
-        KeyValue(stringResource(R.string.payslip_amount_due), payslip.amountDue.toString())
-        KeyValue(
-            stringResource(R.string.payslip_difference),
-            // 用带方向的措辞（与 REQ-009 的环比同一套）：差额可正可负，符号要看得懂
-            if (payslip.differenceFromSalary.isNegative) {
-                "− " + payslip.differenceFromSalary.magnitude.toString()
-            } else {
-                "+ " + payslip.differenceFromSalary.magnitude.toString()
-            },
+    SectionCard(modifier = Modifier.fillMaxWidth(), highlight = true) {
+        SectionTitle(stringResource(R.string.payslip_amount_due))
+        // 应付合计是这一屏的主角（与记账页的"支出"同一套主次）
+        AmountText(
+            text = payslip.amountDue.toString(),
+            tone = AmountTone.ACCENT,
+            emphasis = true,
+            align = TextAlign.Start,
         )
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            StatTile(
+                label = stringResource(R.string.payslip_daily_rate),
+                value = payslip.dailyRate.toString(),
+                valueTone = AmountTone.NEUTRAL,
+            )
+            StatTile(
+                label = stringResource(R.string.payslip_difference),
+                // 用带方向的措辞（与 REQ-009 的环比同一套）：差额可正可负，符号要看得懂
+                value = if (payslip.differenceFromSalary.isNegative) {
+                    "− " + payslip.differenceFromSalary.magnitude.toString()
+                } else {
+                    "+ " + payslip.differenceFromSalary.magnitude.toString()
+                },
+                // 少拿用支出色、多拿用收入色
+                valueTone = if (payslip.differenceFromSalary.isNegative) {
+                    AmountTone.EXPENSE
+                } else {
+                    AmountTone.INCOME
+                },
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
         // AC-4：解释一句，否则用户会以为算错了
         Text(
             text = stringResource(R.string.payslip_difference_explain),
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.jizhangbaoColors.muted,
         )
         if (payslip.holidayDataMissing) {
             // AC-6：不说的话，用户以为今年没有节假日
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = stringResource(R.string.payslip_holiday_data_missing),
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.jizhangbaoColors.muted,
             )
         }
-        HorizontalDivider()
-    }
-}
-
-@Composable
-private fun KeyValue(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Text(value, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
 @Composable
 private fun DaysSection(payslip: Payslip) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            text = stringResource(R.string.payslip_days_title),
-            style = MaterialTheme.typography.titleMedium,
-        )
+    SectionCard(modifier = Modifier.fillMaxWidth()) {
+        SectionTitle(stringResource(R.string.payslip_days_title))
+        Spacer(modifier = Modifier.height(6.dp))
         if (payslip.days.isEmpty()) {
             Text(
                 text = stringResource(R.string.payslip_days_empty),
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.jizhangbaoColors.muted,
             )
         }
         // AC-3：全部逐日列出，不做折叠（Q-029 的决定）
@@ -243,18 +271,34 @@ private fun DaysSection(payslip: Payslip) {
     }
 }
 
+/**
+ * 一天一行：`日期 · 类型 · 倍率` 在左、**金额在右并按有无金额上色**。
+ *
+ * `0×` 的日子（不加班的周末）用次要色 —— 它们和"有金额"的日子一眼分得开（`Q-012`）。
+ */
 @Composable
 private fun DayRow(day: DailyIncome) {
-    Text(
-        text = stringResource(
-            R.string.payslip_day_row,
-            day.date.format(DAY_FORMAT),
-            stringResource(dayTypeRes(day)),
-            stringResource(R.string.payslip_multiplier, day.multiplier.factor),
-            day.amount.toString(),
-        ),
-        style = MaterialTheme.typography.bodyMedium,
-    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(
+                R.string.payslip_day_row,
+                day.date.format(DAY_FORMAT),
+                stringResource(dayTypeRes(day)),
+                stringResource(R.string.payslip_multiplier, day.multiplier.factor),
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+        )
+        AmountText(
+            text = day.amount.toString(),
+            tone = if (day.amount.cents == 0L) AmountTone.MUTED else AmountTone.NEUTRAL,
+        )
+    }
 }
 
 /**

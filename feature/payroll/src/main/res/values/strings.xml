@@ -23,13 +23,13 @@
     <string name="payslip_daily_rate">日薪（月薪 ÷ 21.75）</string>
     <string name="payslip_amount_due">应付合计</string>
     <string name="payslip_difference">与月薪的差额</string>
-    <string name="payslip_difference_explain">21.75 是**年平均值**（(365−104)÷12），所以单月的日收入之和不会正好等于月薪 —— 差多少是真实的，不是算错。</string>
+    <string name="payslip_difference_explain">21.75 是年平均值（(365−104)÷12），所以单月的日收入之和不会正好等于月薪 —— 差多少是真实的，不是算错。</string>
     <string name="payslip_holiday_data_missing">这一年还没有节假日数据，节假日按周末规则推定。</string>
 
     <!-- 逐日明细（AC-3） -->
     <string name="payslip_days_title">逐日明细</string>
     <string name="payslip_days_empty">这个月还没有可算的日子。</string>
-    <string name="payslip_day_row">%1$s · %2$s · %3$s · %4$s</string>
+    <string name="payslip_day_row">%1$s · %2$s · %3$s</string>
     <string name="payslip_day_type_workday">工作日</string>
     <string name="payslip_day_type_rest_day">休息日</string>
     <string name="payslip_day_type_holiday">法定节假日</string>

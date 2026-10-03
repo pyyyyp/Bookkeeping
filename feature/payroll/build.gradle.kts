@@ -11,6 +11,8 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
+    // core:ui：设计系统（T-037 起工资单页也用卡片/语义色）。R1 明确允许 feature -> core:ui。
+    implementation(project(":core:ui"))
     // core:common：日志接口（ADR-0010）。仓储的异常翻译要把原因记下来。
     implementation(project(":core:common"))
 
@@ -43,5 +45,5 @@ dependencies {
 // 本卡只做**纯计算**：出勤/加班由 Worklog 提供，而它还没实现 ——
 // 所以出勤在本轮是**参数**，不造假数据源、也不默认出勤。
 //
-// ⚠️ 本模块目前**不含 UI**，因此不依赖 core:ui。
+// ⚠️ 本模块**含 UI**（T-033 起），T-037 起用 core:ui 的设计系统。
 // 本模块不得依赖任何其他 :feature:*（R2）。

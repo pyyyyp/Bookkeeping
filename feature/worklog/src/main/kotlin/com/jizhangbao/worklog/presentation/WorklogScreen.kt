@@ -6,14 +6,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -30,6 +31,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.jizhangbao.core.ui.component.AmountTone
+import com.jizhangbao.core.ui.component.SectionCard
+import com.jizhangbao.core.ui.component.SectionTitle
+import com.jizhangbao.core.ui.component.StatTile
+import com.jizhangbao.core.ui.theme.jizhangbaoColors
 import com.jizhangbao.worklog.R
 import com.jizhangbao.worklog.domain.SessionState
 import com.jizhangbao.worklog.domain.WorkSession
@@ -37,14 +43,25 @@ import com.jizhangbao.worklog.domain.Workplace
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+/** 时段状态在界面上的语气（`ADR-0014` 决策 2）。 */
+private fun SessionState.tone(): AmountTone = when (this) {
+    SessionState.RUNNING -> AmountTone.ACCENT
+    SessionState.FINISHED -> AmountTone.NEUTRAL
+    SessionState.CONFIRMED -> AmountTone.INCOME
+    SessionState.DISCARDED -> AmountTone.MUTED
+}
+
 /**
  * 工时页（`REQ-016/AC-7`~`AC-9`）。
  *
- * ## 三块，各自回答一件事
+ * ## 三块，各自回答一件事（`T-036` 起每块是一张卡片）
  *
  * 1. **权限**：自动记录开没开？没开就**明说**（`AC-8`：静默失效最糟）。
  * 2. **工作地点**：在哪算上班？用**当前位置**配（`AC-7`：不做地图，那是新依赖）。
  * 3. **今天的时段**：围栏记下的东西等着你点头（`AC-9`：系统只记录、人确认）。
+ *
+ * ⚠️ 这一轮只动**外观**（卡片 / 主次 / 语义色，`T-037`）：
+ * 三块的判断逻辑、按钮出现条件、以及所有 `AC` 驱动的分支**一条没动**。
  *
  * ⚠️ 文案全部走 `stringResource`（`R12`），代码里不出现中文串。
  */
@@ -63,13 +80,13 @@ fun WorklogScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
             text = stringResource(R.string.worklog_title),
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.titleMedium,
         )
-        PermissionSection(
+        PermissionCard(
             granted = state.hasLocationPermission,
             onRequest = {
                 permissionLauncher.launch(
@@ -80,13 +97,13 @@ fun WorklogScreen(
                 )
             },
         )
-        WorkplacesSection(
+        WorkplacesCard(
             workplaces = state.workplaces,
             enabled = !state.isBusy,
             onAddHere = viewModel::addWorkplaceHere,
             onRemove = viewModel::removeWorkplace,
         )
-        SessionsSection(
+        SessionsCard(
             sessions = state.sessions,
             zone = state.zone,
             onConfirm = viewModel::confirm,
@@ -114,27 +131,41 @@ private fun WorklogNotice.textRes(): Int = when (this) {
     WorklogNotice.StorageFailed -> R.string.worklog_storage_failed
 }
 
+/**
+ * 权限状态（`AC-8`）。
+ *
+ * ⚠️ **持续状态写在卡片里，不弹对话框** —— `T-031` 的真机教训：
+ * 对话框会**盖住**「开启自动记录」按钮，用户看到缺权限却点不到修好它的入口。
+ */
 @Composable
-private fun PermissionSection(granted: Boolean, onRequest: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun PermissionCard(granted: Boolean, onRequest: () -> Unit) {
+    val colors = MaterialTheme.jizhangbaoColors
+    SectionCard(
+        modifier = Modifier.fillMaxWidth(),
+        // 没授权时用强调色描边：这一块是当前唯一要用户动手的地方
+        highlight = !granted,
+    ) {
+        SectionTitle(stringResource(R.string.worklog_title))
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = stringResource(
                 if (granted) R.string.worklog_permission_granted
                 else R.string.worklog_permission_missing,
             ),
             style = MaterialTheme.typography.bodyMedium,
+            color = if (granted) colors.income else MaterialTheme.colorScheme.onSurface,
         )
         if (!granted) {
+            Spacer(modifier = Modifier.height(10.dp))
             Button(onClick = onRequest) {
                 Text(stringResource(R.string.worklog_permission_request))
             }
         }
-        HorizontalDivider()
     }
 }
 
 @Composable
-private fun WorkplacesSection(
+private fun WorkplacesCard(
     workplaces: List<Workplace>,
     enabled: Boolean,
     onAddHere: (String, Double) -> Unit,
@@ -143,15 +174,14 @@ private fun WorkplacesSection(
     var name by remember { mutableStateOf("") }
     var radius by remember { mutableStateOf("200") }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = stringResource(R.string.worklog_workplaces_title),
-            style = MaterialTheme.typography.titleMedium,
-        )
+    SectionCard(modifier = Modifier.fillMaxWidth()) {
+        SectionTitle(stringResource(R.string.worklog_workplaces_title))
+        Spacer(modifier = Modifier.height(6.dp))
         if (workplaces.isEmpty()) {
             Text(
                 text = stringResource(R.string.worklog_workplaces_empty),
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.jizhangbaoColors.muted,
             )
         }
         workplaces.forEach { workplace ->
@@ -164,13 +194,18 @@ private fun WorkplacesSection(
                     Text(
                         text = stringResource(R.string.worklog_workplace_summary, workplace.radiusMeters),
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.jizhangbaoColors.muted,
                     )
                 }
                 TextButton(onClick = { onRemove(workplace.id) }) {
-                    Text(stringResource(R.string.worklog_workplace_remove))
+                    Text(
+                        text = stringResource(R.string.worklog_workplace_remove),
+                        color = MaterialTheme.jizhangbaoColors.muted,
+                    )
                 }
             }
         }
+        Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
@@ -178,6 +213,7 @@ private fun WorkplacesSection(
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
+        Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = radius,
             onValueChange = { radius = it },
@@ -185,6 +221,7 @@ private fun WorkplacesSection(
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
+        Spacer(modifier = Modifier.height(10.dp))
         OutlinedButton(
             // 半径解析不出数字时按钮仍然可点，但 VM 会拒绝非法值（<= 0）——
             // 界面不做校验的另一份（两条校验路径迟早漂移）
@@ -193,26 +230,24 @@ private fun WorkplacesSection(
         ) {
             Text(stringResource(R.string.worklog_workplace_add_here))
         }
-        HorizontalDivider()
     }
 }
 
 @Composable
-private fun SessionsSection(
+private fun SessionsCard(
     sessions: List<WorkSession>,
     zone: ZoneId?,
     onConfirm: (WorkSession) -> Unit,
     onDiscard: (WorkSession) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = stringResource(R.string.worklog_sessions_title),
-            style = MaterialTheme.typography.titleMedium,
-        )
+    SectionCard(modifier = Modifier.fillMaxWidth()) {
+        SectionTitle(stringResource(R.string.worklog_sessions_title))
+        Spacer(modifier = Modifier.height(6.dp))
         if (sessions.isEmpty()) {
             Text(
                 text = stringResource(R.string.worklog_sessions_empty),
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.jizhangbaoColors.muted,
             )
         }
         val formatter = remember { DateTimeFormatter.ofPattern("HH:mm") }
@@ -231,23 +266,43 @@ private fun SessionsSection(
                         ),
                         style = MaterialTheme.typography.bodyLarge,
                     )
-                    Text(
-                        text = stringResource(session.state.labelRes()),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                    // 状态按语气上色：进行中青、已确认绿、已作废灰
+                    StatelessStateLabel(session.state)
                 }
                 // 只有还没定论的时段才给按钮：已确认的不该再被随手改掉
                 if (session.state == SessionState.RUNNING || session.state == SessionState.FINISHED) {
                     TextButton(onClick = { onConfirm(session) }) {
-                        Text(stringResource(R.string.worklog_session_confirm))
+                        Text(
+                            text = stringResource(R.string.worklog_session_confirm),
+                            color = MaterialTheme.jizhangbaoColors.accent,
+                        )
                     }
                     TextButton(onClick = { onDiscard(session) }) {
-                        Text(stringResource(R.string.worklog_session_discard))
+                        Text(
+                            text = stringResource(R.string.worklog_session_discard),
+                            color = MaterialTheme.jizhangbaoColors.muted,
+                        )
                     }
                 }
             }
         }
     }
+}
+
+/** 时段状态那一行小字（用 `StatTile` 的标签样式，但颜色跟状态走）。 */
+@Composable
+private fun StatelessStateLabel(state: SessionState) {
+    val colors = MaterialTheme.jizhangbaoColors
+    Text(
+        text = stringResource(state.labelRes()),
+        style = MaterialTheme.typography.labelMedium,
+        color = when (state.tone()) {
+            AmountTone.ACCENT -> colors.accent
+            AmountTone.INCOME -> colors.income
+            AmountTone.EXPENSE -> colors.expense
+            else -> colors.muted
+        },
+    )
 }
 
 private fun SessionState.labelRes(): Int = when (this) {
