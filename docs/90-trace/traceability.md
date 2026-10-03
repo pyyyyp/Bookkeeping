@@ -131,10 +131,10 @@
 | 未决问题数 | 15（2 红 / 10 黄 / 3 绿；`Q-005` 已关闭，本轮新增 `Q-021`） |
 | 已接受的 ADR 数 | **10**（ADR-0006 ~ ADR-0010：错误类型 / 数据层归属 / 跨上下文读模型 / 分类生命周期 / 日志） |
 | 限界上下文数 | 5（Ledger / Worklog / Payroll / Calendar / Insight） |
-| 工程任务数 | 20（**T-001 ~ T-021 全部完成**；`T-020` 是发布收口） |
+| 工程任务数 | 21（**T-001 ~ T-022 全部完成**；`T-020` 是发布收口，`T-022` 是重构） |
 | 已建工程模块数 | **11**（1 个 Kotlin JVM + 9 个 Android Library + 1 个 Application） |
-| 领域层测试数 | **25**（全绿；`T-009` 第一段新增 `SignedMoney` 6 条 + `MonthlyTotals` 5 条） |
-| Android 侧测试数 | **205**（JVM 全绿；其中 6 条是 Konsist 架构断言）+ **14** 条仪器化 DAO 测试（真库，经 `am instrument` 运行） |
+| 领域层测试数 | **44**（`:core:domain:test`；⚠️ 这个数字以前是靠自己数、且**不在门禁里** —— `T-022` 修了门禁才量准） |
+| Android 侧测试数 | **192**（JVM 全绿：`core:testing` 6 + `feature:ledger` 169 + `feature:insight` 17）+ **14** 条仪器化 DAO 测试（真库，经 `am instrument` 运行） |
 | 可交付产物 | **v0.1.0**：`app-release-unsigned.apk`（**8.64 MB**）+ 侧载用的 `app-debug.apk`（12.51 MB）。APK 内**实测** `versionCode=1 versionName=0.1.0`（AGP 9 下不显式给版本号会是空字符串 —— 这正是 `AndroidApplicationConventionPlugin` 注释里那条实测记录）。数据库 `version = 2`，含迁移。发布检查清单逐项证据见 `docs/40-tasks/T-020-release-prep.md` |
 
 ## 工程任务进度
