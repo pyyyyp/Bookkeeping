@@ -1,5 +1,6 @@
 package com.jizhangbao.ledger.data.repository
 
+import com.jizhangbao.core.common.AppLogger
 import com.jizhangbao.core.domain.DomainError
 import com.jizhangbao.core.domain.Outcome
 import com.jizhangbao.ledger.data.local.CategoryDao
@@ -24,6 +25,7 @@ import kotlin.coroutines.cancellation.CancellationException
  */
 internal class CategoryRepositoryImpl @Inject constructor(
     private val dao: CategoryDao,
+    private val logger: AppLogger,
 ) : CategoryRepository {
 
     override suspend fun add(category: Category): Outcome<Unit> =
@@ -56,11 +58,16 @@ internal class CategoryRepositoryImpl @Inject constructor(
         }
     }
 
+    /**
+     * 与条目仓储同构：把技术异常翻成 [DomainError.Technical.Storage]，**并把原因记进日志**
+     * （`REQ-006/AC-1`；不记 PII，见 `BR-2`）。
+     */
     private suspend fun <T> storageOutcome(block: suspend () -> T): Outcome<T> =
         runCatching { block() }.fold(
             onSuccess = { Outcome.Ok(it) },
             onFailure = { failure ->
                 if (failure is CancellationException) throw failure
+                logger.warn("分类的存储操作失败：本机数据库出错（技术细节见下）", failure)
                 Outcome.Err(DomainError.Technical.Storage)
             },
         )

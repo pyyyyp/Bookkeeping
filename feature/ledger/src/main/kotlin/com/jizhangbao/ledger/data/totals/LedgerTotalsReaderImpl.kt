@@ -1,5 +1,6 @@
 package com.jizhangbao.ledger.data.totals
 
+import com.jizhangbao.core.common.AppLogger
 import com.jizhangbao.core.domain.CategoryAmount
 import com.jizhangbao.core.domain.CategoryBreakdown
 import com.jizhangbao.core.domain.DomainError
@@ -28,6 +29,7 @@ import javax.inject.Inject
 internal class LedgerTotalsReaderImpl @Inject constructor(
     private val dao: LedgerEntryDao,
     private val categoryRepository: CategoryRepository,
+    private val logger: AppLogger,
 ) : LedgerTotalsReader {
 
     override suspend fun totalsIn(range: TimeRange): Outcome<MonthlyTotals> {
@@ -46,7 +48,8 @@ internal class LedgerTotalsReaderImpl @Inject constructor(
             onFailure = { failure ->
                 // 协程取消不是存储失败：必须原样抛出，否则取消会被当成绩效问题悄悄吞掉
                 if (failure is CancellationException) throw failure
-                // 与仓储实现一致：异常翻译成领域错误，不让它跨层（也不打印原因，见 T-007 的已知缺口）
+                // 与仓储实现一致：异常翻译成领域错误，不让它跨层；原因记进日志（REQ-006/AC-1）
+                logger.warn("读取本月合计失败：本机数据库出错（技术细节见下）", failure)
                 Outcome.Err(DomainError.Technical.Storage)
             },
         )
@@ -82,6 +85,7 @@ internal class LedgerTotalsReaderImpl @Inject constructor(
             onSuccess = { Outcome.Ok(it) },
             onFailure = { failure ->
                 if (failure is CancellationException) throw failure
+                logger.warn("读取支出构成失败：本机数据库出错（技术细节见下）", failure)
                 Outcome.Err(DomainError.Technical.Storage)
             },
         )
