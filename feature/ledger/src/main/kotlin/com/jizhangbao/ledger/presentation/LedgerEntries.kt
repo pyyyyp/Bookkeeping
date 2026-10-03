@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.jizhangbao.ledger.R
 import com.jizhangbao.ledger.domain.model.LedgerEntry
+import com.jizhangbao.ledger.domain.model.UnreadableRow
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -32,21 +33,30 @@ private val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-M
 internal fun EntriesSectionHeader(
     entriesCount: Int,
     showDeletedNotice: Boolean,
-    /** 读不出来的条数（`REQ-006/AC-3`）：> 0 时必须说出来，不能让它看起来像"账目变少了"。 */
-    unreadableEntries: Int,
+    /**
+     * 读不出来的行（`REQ-006/AC-3` `REQ-008`）：非空时必须说出来，
+     * 不能让它看起来像"账目变少了"。
+     */
+    unreadableRows: List<UnreadableRow>,
+    /** 用户点「处理」（`REQ-008/AC-1`）：打开坏行清单。 */
+    onUnreadableClick: () -> Unit = {},
 ) {
     Text(
         text = stringResource(R.string.ledger_list_title),
         style = MaterialTheme.typography.titleMedium,
     )
 
-    if (unreadableEntries > 0) {
-        // 说清楚三件事：有几条、为什么、以及它们不会让合计变少
+    if (unreadableRows.isNotEmpty()) {
+        // 说清楚两件事：有几条、以及它们不会让合计变少。
+        // 第三件事（"你能拿它怎么办"）由下面的按钮回答 —— REQ-008 之前这里是无解的。
         Text(
-            text = stringResource(R.string.ledger_unreadable_entries, unreadableEntries),
+            text = stringResource(R.string.ledger_unreadable_entries, unreadableRows.size),
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodyMedium,
         )
+        TextButton(onClick = onUnreadableClick) {
+            Text(stringResource(R.string.ledger_unreadable_manage))
+        }
     }
 
     if (showDeletedNotice) {

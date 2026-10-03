@@ -32,6 +32,7 @@ import com.jizhangbao.core.domain.EntryDirection
 import com.jizhangbao.ledger.R
 import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.LedgerEntry
+import com.jizhangbao.ledger.domain.model.UnreadableRow
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -88,6 +89,8 @@ internal fun LedgerRoute(
         onDeleteRequested = viewModel::onDeleteRequested,
         onDeleteConfirmed = viewModel::onDeleteConfirmed,
         onDeleteCancelled = viewModel::onDeleteCancelled,
+        // REQ-008：删掉一条读不出来的数据
+        onUnreadableDiscarded = viewModel::onUnreadableDiscarded,
         header = header,
     )
 }
@@ -115,10 +118,15 @@ internal fun LedgerScreen(
     onDeleteRequested: (com.jizhangbao.ledger.domain.model.LedgerEntry) -> Unit,
     onDeleteConfirmed: () -> Unit,
     onDeleteCancelled: () -> Unit,
+    /** `REQ-008`：用户确认删掉一条读不出来的数据（原始标识）。 */
+    onUnreadableDiscarded: (String) -> Unit = {},
     header: @Composable () -> Unit = {},
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     var showCategories by remember { mutableStateOf(false) }
+    // REQ-008：坏行清单开着吗。用局部状态而不是 ViewModel 状态 ——
+    // 它是"界面上开着哪个对话框"，不是业务事实（对比 pendingDelete）。
+    var showUnreadable by remember { mutableStateOf(false) }
     val zone = remember { ZoneId.systemDefault() }
 
     Scaffold(
@@ -156,8 +164,9 @@ internal fun LedgerScreen(
             entriesHeaderItem(
                 entriesCount = state.entries.size,
                 showDeletedNotice = state.deletedNotice,
-                // REQ-006/AC-3：跳过了几条读不出来的行，界面上要说出来
-                unreadableEntries = state.unreadableEntries,
+                // REQ-006/AC-3 + REQ-008：说出有几条读不出来，并给一个"能处理它"的入口
+                unreadableRows = state.unreadableRows,
+                onUnreadableClick = { showUnreadable = true },
             )
 
             entriesItems(
@@ -171,12 +180,64 @@ internal fun LedgerScreen(
         }
     }
 
+    LedgerDialogs(
+        state = state,
+        zone = zone,
+        showUnreadable = showUnreadable,
+        showDatePicker = showDatePicker,
+        showCategories = showCategories,
+        onUnreadableDismiss = { showUnreadable = false },
+        onUnreadableDiscarded = onUnreadableDiscarded,
+        onDatePickerDismiss = { showDatePicker = false },
+        onOccurredAtChange = onOccurredAtChange,
+        onCategoriesDismiss = { showCategories = false },
+        onCategoriesChanged = onCategoriesChanged,
+        onDeleteConfirmed = onDeleteConfirmed,
+        onDeleteCancelled = onDeleteCancelled,
+    )
+}
+
+/**
+ * 记账页上的四个对话框（`T-018` 从 [LedgerScreen] 里提出来）。
+ *
+ * 它们回答的是同一件事：「什么时候该弹哪个」。抽出来之后 [LedgerScreen]
+ * 只负责"页面由哪几块组成" —— 与 `T-016` 抽 `LazyListScope` 扩展是同一个理由，
+ * 顺带也让它不再因为每加一个对话框就撞 detekt 的 `LongMethod`。
+ */
+@Composable
+private fun LedgerDialogs(
+    state: LedgerUiState,
+    zone: ZoneId,
+    showUnreadable: Boolean,
+    showDatePicker: Boolean,
+    showCategories: Boolean,
+    onUnreadableDismiss: () -> Unit,
+    onUnreadableDiscarded: (String) -> Unit,
+    onDatePickerDismiss: () -> Unit,
+    onOccurredAtChange: (Instant) -> Unit,
+    onCategoriesDismiss: () -> Unit,
+    onCategoriesChanged: () -> Unit,
+    onDeleteConfirmed: () -> Unit,
+    onDeleteCancelled: () -> Unit,
+) {
+    // ⚠️ 冒烟发现的真 bug：删掉**最后一条**之后 `unreadableRows` 变空，而 `showUnreadable`
+    // 还是 true —— 对话框会空着不走（标题变成"有 0 条"）。所以这里多一个非空条件：
+    // 没有坏行可处理时，对话框就不该存在。
+    if (showUnreadable && state.unreadableRows.isNotEmpty()) {
+        // REQ-008：坏行清单。删掉一条之后 ViewModel 会重拉列表与合计（AC-3）
+        UnreadableRowsDialog(
+            rows = state.unreadableRows,
+            onDiscard = onUnreadableDiscarded,
+            onDismiss = onUnreadableDismiss,
+        )
+    }
+
     if (showDatePicker) {
         OccurredAtPickerDialog(
             occurredAt = state.occurredAt,
             zone = zone,
             onOccurredAtChange = onOccurredAtChange,
-            onDismiss = { showDatePicker = false },
+            onDismiss = onDatePickerDismiss,
         )
     }
 
@@ -191,7 +252,7 @@ internal fun LedgerScreen(
     if (showCategories) {
         CategoryManagerDialog(
             onDismiss = {
-                showCategories = false
+                onCategoriesDismiss()
                 // 关掉之后通知一次：分类可能被增/改/归档过，选择器与列表的显示名都要跟着变
                 onCategoriesChanged()
             },
@@ -208,14 +269,16 @@ internal fun LedgerScreen(
 private fun LazyListScope.entriesHeaderItem(
     entriesCount: Int,
     showDeletedNotice: Boolean,
-    unreadableEntries: Int,
+    unreadableRows: List<UnreadableRow>,
+    onUnreadableClick: () -> Unit,
 ) {
     item { HorizontalDivider() }
     item {
         EntriesSectionHeader(
             entriesCount = entriesCount,
             showDeletedNotice = showDeletedNotice,
-            unreadableEntries = unreadableEntries,
+            unreadableRows = unreadableRows,
+            onUnreadableClick = onUnreadableClick,
         )
     }
 }

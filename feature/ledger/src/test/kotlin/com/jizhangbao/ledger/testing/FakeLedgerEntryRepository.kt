@@ -31,6 +31,18 @@ internal class FakeLedgerEntryRepository : LedgerEntryRepository {
     /** 非 null 时 `recent` 直接返回它，用于制造失败场景。 */
     var recentOutcome: Outcome<RecentEntries>? = null
 
+    /** 非 null 时 `discardUnreadableRow` 直接返回它，用于制造失败场景（`REQ-008`）。 */
+    var discardOutcome: Outcome<Unit>? = null
+
+    /** 被要求删掉的坏行原始标识（按调用顺序）。 */
+    val discarded = mutableListOf<String>()
+
+    override suspend fun discardUnreadableRow(rawId: String): Outcome<Unit> {
+        discardOutcome?.let { return it }
+        discarded += rawId
+        return Outcome.Ok(Unit)
+    }
+
     /** 非 null 时 `remove` 直接返回它，用于制造失败场景。 */
     var removeOutcome: Outcome<Unit>? = null
 

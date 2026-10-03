@@ -13,6 +13,7 @@ import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.LedgerEntry
 import com.jizhangbao.ledger.domain.model.LedgerEntryId
 import com.jizhangbao.ledger.domain.model.RecentEntries
+import com.jizhangbao.ledger.domain.model.UnreadableRow
 import com.jizhangbao.ledger.domain.repository.LedgerEntryRepository
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
@@ -110,9 +111,19 @@ internal class LedgerEntryRepositoryImpl @Inject constructor(
      */
     private fun List<LedgerEntryEntity>.toRecentEntries(): RecentEntries {
         val failures = mutableListOf<Throwable>()
+        val unreadable = mutableListOf<UnreadableRow>()
         val entries = mapNotNull { row ->
             runCatching { LedgerEntryMapper.toDomain(row) }
-                .onFailure(failures::add)
+                .onFailure { failure ->
+                    failures += failure
+                    // REQ-008/BR-4：把**原始主键**与域校验说的话一起带出去。
+                    // 主键是唯一能指回这一行的东西（别的字段都不可信 —— 正是因为不可信才读不出来），
+                    // 而原因照实写，不翻译成"数据损坏"这种含糊说法。
+                    unreadable += UnreadableRow(
+                        rawId = row.id,
+                        reason = failure.message ?: failure::class.simpleName.orEmpty(),
+                    )
+                }
                 .getOrNull()
         }
 
@@ -124,7 +135,24 @@ internal class LedgerEntryRepositoryImpl @Inject constructor(
             )
         }
 
-        return RecentEntries(entries = entries, unreadable = failures.size)
+        return RecentEntries(entries = entries, unreadableRows = unreadable)
+    }
+
+    /**
+     * 删掉一条读不出来的数据（`REQ-008`）。
+     *
+     * 走的还是 [LedgerEntryDao.deleteById]（同一个 DELETE），只是**主键来自库里的原始字符串**，
+     * 而不是一个 `LedgerEntryId` —— 坏数据的标识根本不是合法标识，这正是它读不出来的原因。
+     *
+     * 受影响行数为 0 也返回成功（幂等）：这个方法的目的是"把坏数据清掉"，
+     * 它已经不在了就是达成目的（与 [remove] 的 `EntryNotFound` 语义不同，理由见接口 KDoc）。
+     */
+    override suspend fun discardUnreadableRow(rawId: String): Outcome<Unit> {
+        val deleted = storageOutcome("删除一条读不出来的数据") { dao.deleteById(rawId) }
+        return when (deleted) {
+            is Outcome.Err -> deleted
+            is Outcome.Ok -> Outcome.Ok(Unit)
+        }
     }
 
     /**

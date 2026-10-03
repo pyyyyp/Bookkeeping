@@ -55,6 +55,8 @@ class LedgerViewModelTest {
         recordEntry = RecordLedgerEntryUseCase(repository, clock),
         loadEntries = LoadRecentEntriesUseCase(repository),
         deleteEntry = DeleteLedgerEntryUseCase(repository),
+        // REQ-008：坏行的删除入口 —— 这条测试路径不测它，但构造参数不能少
+        discardUnreadableRow = com.jizhangbao.ledger.application.DiscardUnreadableRowUseCase(repository),
         reviseEntry = com.jizhangbao.ledger.application.ReviseLedgerEntryUseCase(repository),
         // REQ-004：分类清单来自仓储（预置 ∪ 自定义）。空的 fake 足够——这里不测分类管理
         loadCategories = com.jizhangbao.ledger.application.LoadCategoriesUseCase(
