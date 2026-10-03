@@ -35,8 +35,26 @@ private val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-M
  * 不该长出自己的数据流。所以组合根只说"用户点了哪个分类的哪个月"，
  * 剩下的都在这里。
  *
- * ⚠️ **只读**（`BR-3`）：这里没有编辑/删除。改动路径只能有一条（记账页那条），
- * 两条路径各写一套校验迟早漂移（`REQ-003` 的教训）。
+ * ## 每行能改能删（`REQ-011`），而且**没有第二套流程**
+ *
+ * `REQ-007` 当时做成只读，理由是"改动路径只能有一条"（两条路径各写一套校验与确认
+ * 迟早漂移）。`REQ-011` 没有推翻这条理由，而是换了个做法：这里的「改」「删」
+ * **只是把这一条交给账本页那套流程** ——
+ *
+ * - 「改」→ [LedgerViewModel.onEditRequested]，账本页的编辑表单随之打开并回填；
+ * - 「删」→ [LedgerViewModel.onDeleteRequested]，账本页的**同一个** `DeleteConfirmDialog`
+ *   随之弹出（文案逐字相同，因为它就是同一份）。
+ *
+ * ## ⚠️ 这里有一处**承重**的假设
+ *
+ * [hiltViewModel] 取到的 `LedgerViewModel` 与账本页 `LedgerRoute` 取到的是**同一个实例**
+ * （Hilt 按 Activity 作用域，两者都在同一棵组合树里）。如果将来有人把这个对话框挪到
+ * 别的 `ViewModelStoreOwner` 下面，它会静默变成**第二个** ViewModel ——
+ * 表现是"点了改/删没反应"（状态没人渲染）。真机冒烟能立刻看出这一点
+ * （`T-023` 的验收就是点「改」后表单必须回填），所以这条假设是被验证过的，不是想当然。
+ *
+ * 另一条边界：**一次只处理一件事**（`BR-3`）。点「改」或「删」先把下钻关掉，
+ * 不让两个对话框叠着 —— 既避免点错层，也让"我改的是哪一条"始终只有一个答案。
  */
 @Composable
 fun LedgerCategoryEntriesDialog(
@@ -51,16 +69,33 @@ fun LedgerCategoryEntriesDialog(
     val viewModel: CategoryEntriesViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // REQ-011：改动走账本页那套流程，所以这里要的是**账本页那个** ViewModel。
+    // 见上面 KDoc 里那条承重假设。
+    val ledgerViewModel: LedgerViewModel = hiltViewModel()
+
     // 键变化就重新拉：同一个对话框实例可能被连续用来打开不同分类
     LaunchedEffect(categoryKey, month) { viewModel.load(categoryKey, categoryName, month, zone) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            // AC-1：标题必须说清"哪个分类、哪个月"
+            // AC-1（REQ-007）：标题必须说清"哪个分类、哪个月"
             Text(stringResource(R.string.ledger_category_entries_title, categoryName, month.format(MONTH_FORMAT)))
         },
-        text = { CategoryEntriesContent(state = state, zone = zone) },
+        text = {
+            CategoryEntriesContent(
+                state = state,
+                zone = zone,
+                onEdit = { entry ->
+                    onDismiss() // BR-3：先关下钻，再打开编辑表单
+                    ledgerViewModel.onEditRequested(entry)
+                },
+                onDelete = { entry ->
+                    onDismiss() // BR-3：先关下钻，再弹（账本页那套）二次确认
+                    ledgerViewModel.onDeleteRequested(entry)
+                },
+            )
+        },
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.ledger_category_entries_close))
@@ -76,7 +111,12 @@ fun LedgerCategoryEntriesDialog(
  * （`T-016` 在记账页用过同一手法：detekt 的 `LongMethod` 与"可读性"在这里指向同一个方向）。
  */
 @Composable
-private fun CategoryEntriesContent(state: CategoryEntriesUiState, zone: ZoneId) {
+private fun CategoryEntriesContent(
+    state: CategoryEntriesUiState,
+    zone: ZoneId,
+    onEdit: (LedgerEntry) -> Unit,
+    onDelete: (LedgerEntry) -> Unit,
+) {
     val textStyle = MaterialTheme.typography.bodyMedium
 
     when {
@@ -91,29 +131,36 @@ private fun CategoryEntriesContent(state: CategoryEntriesUiState, zone: ZoneId) 
             text = stringResource(R.string.ledger_category_entries_empty),
             style = textStyle,
         )
-        else -> CategoryEntriesList(state = state, zone = zone)
-    }
-}
+        else -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (state.unreadableEntries > 0) {
+                // REQ-006/AC-3：跳过了坏行就要说，不能让它看起来像"条目变少了"
+                Text(
+                    text = stringResource(R.string.ledger_unreadable_entries, state.unreadableEntries),
+                    color = MaterialTheme.colorScheme.error,
+                    style = textStyle,
+                )
+            }
 
-@Composable
-private fun CategoryEntriesList(state: CategoryEntriesUiState, zone: ZoneId) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (state.unreadableEntries > 0) {
-            // REQ-006/AC-3：跳过了坏行就要说，不能让它看起来像"条目变少了"
-            Text(
-                text = stringResource(R.string.ledger_unreadable_entries, state.unreadableEntries),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            state.entries.forEach { entry ->
+                CategoryEntryRow(entry = entry, zone = zone, onEdit = onEdit, onDelete = onDelete)
+            }
         }
-
-        state.entries.forEach { entry -> CategoryEntryRow(entry = entry, zone = zone) }
     }
 }
 
-/** 只读的一行：金额 + 发生日期。**没有**编辑/删除（`BR-3`）。 */
+/**
+ * 一行：金额 + 发生日期 + 「改」「删」（`REQ-011/AC-1`）。
+ *
+ * 两个按钮的文案**复用**账本页那两条字符串（`ledger_edit` / `ledger_delete`）——
+ * 同一个动作在两个地方叫两个名字，是"漂移"最开始的样子。
+ */
 @Composable
-private fun CategoryEntryRow(entry: LedgerEntry, zone: ZoneId) {
+private fun CategoryEntryRow(
+    entry: LedgerEntry,
+    zone: ZoneId,
+    onEdit: (LedgerEntry) -> Unit,
+    onDelete: (LedgerEntry) -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -124,5 +171,13 @@ private fun CategoryEntryRow(entry: LedgerEntry, zone: ZoneId) {
             style = MaterialTheme.typography.bodyMedium,
         )
         Text(text = entry.amount.toString(), style = MaterialTheme.typography.bodyMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+            TextButton(onClick = { onEdit(entry) }) {
+                Text(stringResource(R.string.ledger_edit))
+            }
+            TextButton(onClick = { onDelete(entry) }) {
+                Text(stringResource(R.string.ledger_delete))
+            }
+        }
     }
 }
