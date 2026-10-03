@@ -8,6 +8,7 @@ import com.jizhangbao.ledger.domain.model.Category
 import com.jizhangbao.ledger.domain.model.CategoryId
 import com.jizhangbao.ledger.domain.model.CategoryName
 import com.jizhangbao.ledger.testing.FakeCategoryDao
+import com.jizhangbao.ledger.testing.RecordingLogger
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -26,7 +27,7 @@ import org.junit.Test
 class CategoryRepositoryImplTest {
 
     private val dao = FakeCategoryDao()
-    private val repository = CategoryRepositoryImpl(dao)
+    private val repository = CategoryRepositoryImpl(dao, RecordingLogger())
 
     private fun category(
         id: String = "custom-pet",
