@@ -150,6 +150,12 @@ jobs:
       - name: 构建 Debug APK
         run: ./gradlew assembleDebug --console=plain
 
+      - name: 构建 Release APK（发布路径不能只在发布那天才被构建）
+        # ⚠️ 这一步**不需要**密钥：没有 keystore.properties 时 release 包不签名，
+        # 但构建照常通过（T-024 实测）。加它是因为 R8/资源压缩的配置坏了
+        # 在 assembleDebug 里**看不见** —— 那种"只有发布那天才发现"的失败最贵。
+        run: ./gradlew assembleRelease --console=plain
+
       - name: 追溯矩阵校验
         # 用 pwsh 而不是 bash：本机是 Windows，脚本只有一份（见脚本头部说明）。
         # ubuntu runner 预装 PowerShell 7。

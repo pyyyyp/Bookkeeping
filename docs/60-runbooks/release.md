@@ -29,15 +29,25 @@ SemVer `MAJOR.MINOR.PATCH`，`versionCode` 单调递增。
 
 | 项 | 位置 | 说明 |
 |---|---|---|
-| keystore | **不入库**，由密钥管理系统保管 | ⚠️ **当前没有配置**（也没有密钥管理系统） |
-| `keystore.properties` | **不入库**，CI 通过环境变量注入 | ⚠️ **当前没有配置** |
+| keystore | **不入库**，由密钥管理系统保管 | `.tools/keystore/jizhangbao-release.jks`（RSA 4096 / 30 年） |
+| `keystore.properties` | **不入库**，CI 通过环境变量注入 | 仓库根；**缺它也能构建**，只是 release 包不签名 |
 
-> ⚠️ **现状（v0.1.0）**：本项目自用侧载（`Q-007`，不上架应用商店），
-> 因此**没有签名配置**：产出的是未签名的 release 包 + 侧载用的 debug APK。
-> 手册下面「上传、灰度、观察、回滚」几节在自用侧载下**不适用** ——
-> 要真上架，签名配置是**必须先做的独立任务**，做完那些小节才生效。
+> ✅ **现状（`T-024`）**：签名**已配置**。有 `keystore.properties` → `assembleRelease` 产出
+> **已签名**的 `app-release.apk`；没有它 → 构建**照常通过**，产物是 `app-release-unsigned.apk`，
+> 并且**日志里会明说**（静默产出一个看起来没问题的包更糟）。
+> 日常开发用 debug 包，不受影响；**干净克隆与 CI 都不需要密钥**。
+>
+> ⚠️ **签名身份不可更换**：同一个 applicationId 一旦用某个密钥发布，后续版本必须用**同一个**密钥，
+> 否则商店与系统都会拒绝覆盖安装。**密钥丢了 = 再也发不出更新** ——
+> 请把 `.jks` 搬进密钥管理器并做离线备份（本仓库既没有密钥管理系统，也还没有 CI 注入）。
+> 当前密钥指纹（**公开**信息，签名身份靠它辨认）：
+> `SHA256 DE:33:A6:14:AA:82:5B:85:DB:85:D1:53:EF:FF:DA:8B:15:74:13:15:B9:D9:70:9B:25:4F:6D:AA:97:66:CE:9B`
+>
+> 重新配置：`keytool -genkeypair -keystore <新路径>.jks -alias jizhangbao -keyalg RSA -keysize 4096 -validity 10950`
+> 再按下面四个键写 `keystore.properties`：`storeFile` / `storePassword` / `keyAlias` / `keyPassword`。
 
-> 本仓库的 `.gitignore` 已忽略 `*.jks` / `*.keystore` / `keystore.properties`。
+> 本仓库的 `.gitignore` 已忽略 `*.jks` / `*.keystore` / `keystore.properties`
+> （`T-024` 用 `git check-ignore -v` 实测确认，两条规则各管一个）。
 > **提交密钥后必须轮换，清理历史不能替代轮换。**
 
 ## 发布流程
