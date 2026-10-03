@@ -6,6 +6,10 @@
 <resources>
     <!-- 例：2026 年 10 月 -->
     <string name="insight_month_format">%1$d 年 %2$d 月</string>
+    <!-- REQ-009 月度环比：三种说法。少花时用绝对值 —— 句子里已经有"少"了 -->
+    <string name="insight_comparison_more">比上月多花 %1$s</string>
+    <string name="insight_comparison_less">比上月少花 %1$s</string>
+    <string name="insight_comparison_same">与上月持平</string>
     <string name="insight_previous_month">上一月</string>
     <string name="insight_next_month">下一月</string>
     <string name="insight_expense_total">支出</string>

@@ -17,6 +17,14 @@ internal class FakeLedgerTotalsReader : LedgerTotalsReader {
 
     var outcome: Outcome<MonthlyTotals> = Outcome.Ok(MonthlyTotals.ZERO)
 
+    /**
+     * 按区间给不同结果（`REQ-009`）。
+     *
+     * 环比要问**两段**区间（本月与上月），所以一个固定的 [outcome] 不够用。
+     * 非 null 时优先用它 —— 测试据此让两个月返回不同的合计。
+     */
+    var outcomeByRange: ((TimeRange) -> Outcome<MonthlyTotals>)? = null
+
     /** `REQ-005`：分类占比的结果，测试按需指定。 */
     var breakdownOutcome: Outcome<CategoryBreakdown> = Outcome.Ok(CategoryBreakdown.EMPTY)
 
@@ -27,7 +35,7 @@ internal class FakeLedgerTotalsReader : LedgerTotalsReader {
 
     override suspend fun totalsIn(range: TimeRange): Outcome<MonthlyTotals> {
         requestedRanges += range
-        return outcome
+        return outcomeByRange?.invoke(range) ?: outcome
     }
 
     override suspend fun expensesByCategory(range: TimeRange): Outcome<CategoryBreakdown> {

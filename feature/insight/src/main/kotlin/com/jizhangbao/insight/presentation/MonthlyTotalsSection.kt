@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jizhangbao.core.domain.CategoryAmount
+import com.jizhangbao.core.domain.MonthlyComparison
 import com.jizhangbao.core.domain.MonthlyTotals
 import com.jizhangbao.insight.R
 import java.time.YearMonth
@@ -118,6 +119,11 @@ internal fun MonthlyTotalsSection(
         // 整月都没有记账时，下面的「这个月还没有记账」已经把话说清楚了，
         // 再叠一句"本月还没有支出"只是噪音
         if (state.totals != MonthlyTotals.ZERO && !state.isLoading) {
+            // REQ-009：与上月的支出环比。
+            // 与占比共用一个门槛（AC-4）：本月没有记账时两个都不显示 ——
+            // 没有数据的月份谈不上"与上月持平"，那是噪音
+            state.comparison?.let { MonthlyComparisonLine(it) }
+
             CategoryShareList(
                 breakdown = state.breakdown,
                 // 月份由状态给：它才是"用户现在看的是哪个月"的唯一来源
@@ -141,6 +147,27 @@ internal fun MonthlyTotalsSection(
             )
         }
     }
+}
+
+/**
+ * 「比上月多花 / 少花 ¥X」（`REQ-009`）。
+ *
+ * 三种说法的选择在**这里**，减法在模型里（`BR-3`）：界面只回答
+ * "怎么把这个差额说成人话"，不重新算一遍 —— 在界面里做减法就是第二处口径。
+ *
+ * 少花时用 `magnitude` 而不是原值：句子里已经有"少"了，
+ * 再显示负号会读成"少了负的"。
+ */
+@Composable
+private fun MonthlyComparisonLine(comparison: MonthlyComparison) {
+    val delta = comparison.expenseDelta
+    val text = when {
+        comparison.isUnchanged -> stringResource(R.string.insight_comparison_same)
+        delta.isNegative -> stringResource(R.string.insight_comparison_less, delta.magnitude.toString())
+        else -> stringResource(R.string.insight_comparison_more, delta.toString())
+    }
+
+    Text(text = text, style = MaterialTheme.typography.bodySmall)
 }
 
 @Composable
