@@ -98,8 +98,12 @@ Worklog 只提供一个布尔式的事实：「这一天出勤了吗、属不属
 | `LocalDate` 相关的日期类型 | `core:domain`（按需） | Calendar, Payroll, Ledger | 同上 |
 
 > 共享内核**越小越好**。只放真正的通用原语。
-> 特别注意：**`DayType` 不放共享内核**——它是 Calendar 的概念，
-> Payroll 通过 Calendar 的只读接口获取，不得自己定义一份。
+> ⚠️ **`DayType`：语义归 Calendar，类型放共享内核** —— `ADR-0011` 决策 4 显式裁决了这里的一处冲突：
+> 本文原写"不放共享内核"（一个**位置**问题），而"Payroll 通过 Calendar 的只读接口获取"
+> 若按字面做就是 `feature:payroll → feature:calendar`，**直接违反 `R2`**。
+> 裁决沿用 `ADR-0008` 的判例（与 `LedgerTotalsReader` 完全同构）：
+> **端口与类型住内核，判定规则与实现住 `feature:calendar`，任何其他上下文不得重新定义一份。**
+> —— 这不是放宽约束，而是把"谁能定义"从位置问题改成**所有权**问题。
 
 ## 跨上下文协作方式
 
