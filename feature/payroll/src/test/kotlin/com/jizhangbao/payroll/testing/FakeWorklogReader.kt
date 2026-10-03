@@ -17,7 +17,7 @@ class FakeWorklogReader(
     /** 记录下每次被问的区间，方便断言"确实只问了一次、且区间正确"。 */
     val requestedRanges = mutableListOf<Pair<LocalDate, LocalDate>>()
 
-    override fun attendedDays(from: LocalDate, toInclusive: LocalDate): List<AttendedDay> {
+    override suspend fun attendedDays(from: LocalDate, toInclusive: LocalDate): List<AttendedDay> {
         requestedRanges += from to toInclusive
         return attended
             .filter { !it.date.isBefore(from) && !it.date.isAfter(toInclusive) }

@@ -6,6 +6,7 @@ import com.jizhangbao.payroll.domain.MonthlySalary
 import com.jizhangbao.payroll.domain.PayMultiplier
 import com.jizhangbao.payroll.testing.FakeWorkCalendar
 import com.jizhangbao.payroll.testing.FakeWorklogReader
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -20,6 +21,9 @@ import java.time.temporal.TemporalAdjusters
  *
  * ⚠️ 夹具日期仍然**从星期几推出来**（`T-025`/`T-027` 的同一条纪律）：
  * 若测试自己依赖"2026-10-01 是周四"，那它验证的是我的记忆，不是规则。
+ *
+ * ⚠️ `T-029` 起用例是 `suspend`（工时要读数据库），所以每个用例体套一层 `runBlocking`。
+ * 它是**测试**里的桥，不是生产代码的形状。
  */
 class LoadPayslipUseCaseTest {
 
@@ -57,13 +61,15 @@ class LoadPayslipUseCaseTest {
         date: LocalDate,
         minutes: Int?,
         holidays: Set<LocalDate> = emptySet(),
-    ) = useCase(
-        holidays = holidays,
-        attended = if (minutes == null) emptyList() else listOf(AttendedDay(date, minutes)),
-    )
-        .first(month = month, salary = salary, upTo = date)
-        .days
-        .single { it.date == date }
+    ) = runBlocking {
+        useCase(
+            holidays = holidays,
+            attended = if (minutes == null) emptyList() else listOf(AttendedDay(date, minutes)),
+        )
+            .first(month = month, salary = salary, upTo = date)
+            .days
+            .single { it.date == date }
+    }
 
     @Test
     fun `AC-1 工作日没记录也按 1 倍`() {
@@ -103,7 +109,7 @@ class LoadPayslipUseCaseTest {
     }
 
     @Test
-    fun `AC-5 只算到今天为止_未来的日子不参与`() {
+    fun `AC-5 只算到今天为止_未来的日子不参与`() = runBlocking {
         val upTo = aWednesday
         val (useCase, worklog) = useCase()
 
@@ -117,7 +123,7 @@ class LoadPayslipUseCaseTest {
     }
 
     @Test
-    fun `AC-6 节假日数据没填时_工资单要带出来`() {
+    fun `AC-6 节假日数据没填时_工资单要带出来`() = runBlocking {
         val (useCase, _) = useCase(missingYear = true)
 
         val payslip = useCase(month = month, salary = salary, upTo = aWednesday)
@@ -127,19 +133,21 @@ class LoadPayslipUseCaseTest {
     }
 
     @Test
-    fun `有数据时不谎报缺数据`() {
+    fun `有数据时不谎报缺数据`() = runBlocking {
         val (useCase, _) = useCase(missingYear = false)
 
         assertFalse(useCase(month = month, salary = salary, upTo = aWednesday).holidayDataMissing)
     }
 
     @Test
-    fun `一个月还没开始时_是调用方的 bug`() {
+    fun `一个月还没开始时_是调用方的 bug`() = runBlocking {
         val (useCase, _) = useCase()
 
         // 这是编程错误而不是业务结果，所以用 require 明确拒绝（BR-5 说明了为什么不用 Outcome）
-        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+        val error = runCatching {
             useCase(month = month, salary = salary, upTo = month.atDay(1).minusDays(1))
-        }
+        }.exceptionOrNull()
+
+        assertEquals(IllegalArgumentException::class.java, error?.javaClass)
     }
 }

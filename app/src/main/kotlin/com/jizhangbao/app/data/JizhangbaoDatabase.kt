@@ -6,6 +6,8 @@ import com.jizhangbao.ledger.data.local.CategoryDao
 import com.jizhangbao.ledger.data.local.CategoryEntity
 import com.jizhangbao.ledger.data.local.LedgerEntryDao
 import com.jizhangbao.ledger.data.local.LedgerEntryEntity
+import com.jizhangbao.worklog.data.local.WorkSessionDao
+import com.jizhangbao.worklog.data.local.WorkSessionEntity
 
 /**
  * 应用**唯一**的 Room 数据库（本机唯一事实源）。
@@ -29,12 +31,16 @@ import com.jizhangbao.ledger.data.local.LedgerEntryEntity
  *
  * 版本历史（每次加表/改列都要在这里记一笔，并同时写迁移）：
  * - `1`：`ledger_entry`（`T-007`）
- * - `2`：`category`（`T-012` / `REQ-004`）—— 新表，用 `MIGRATION_1_2` 建，
- *   迁移 SQL 写在 [MIGRATION_1_2] 所在的 `Migrations.kt`（同一个 `data` 包）
+ * - `2`：`category`（`T-012` / `REQ-004`）—— 新表，用 `MIGRATION_1_2` 建
+ * - `3`：`work_session`（`T-029` / `REQ-014/AC-6`）—— 新表，用 `MIGRATION_2_3` 建。
+ *   **同样只加表、不动旧表** —— 所以这次升级不可能碰到用户已有的账
+ *   （`REQ-014/AC-7` 会在带真实数据的模拟器上验证这一点）。
+ *
+ * 迁移 SQL 都写在 [MIGRATION_1_2] 所在的 `Migrations.kt`（同一个 `data` 包）。
  */
 @Database(
-    entities = [LedgerEntryEntity::class, CategoryEntity::class],
-    version = 2,
+    entities = [LedgerEntryEntity::class, CategoryEntity::class, WorkSessionEntity::class],
+    version = 3,
     exportSchema = true,
 )
 abstract class JizhangbaoDatabase : RoomDatabase() {
@@ -42,4 +48,6 @@ abstract class JizhangbaoDatabase : RoomDatabase() {
     abstract fun ledgerEntryDao(): LedgerEntryDao
 
     abstract fun categoryDao(): CategoryDao
+
+    abstract fun workSessionDao(): WorkSessionDao
 }
