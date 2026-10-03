@@ -8,15 +8,17 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
-    implementation(project(":core:ui"))
+
+    testImplementation(libs.junit4)
 }
 
 // Payroll 薪资（核心域）：月薪 → 日薪 → 每日收入 → 工资单。
 //
-// 🔴 **本模块在 Q-015 定案前不得实现任何业务逻辑。**
-// Q-015（缺勤与法定节假日是否带薪）直接改变每日收入公式：
-//   工作日缺勤 = 0 还是 1×日薪？法定节假日休息 = 0 还是带薪 1×日薪？
-// 猜错会让「日收入之和 ≠ 月薪」这个事实被掩盖进代码里，事后极难发现。
-// 见 docs/20-domain/open-questions.md
+// Q-015 已定案（缺勤不计、法定节假日休息带薪，见 open-questions.md），
+// 所以业务逻辑可以动工。算法与取舍见 docs/20-domain/payroll-model.md 与 REQ-013。
 //
+// 本卡只做**纯计算**：出勤/加班由 Worklog 提供，而它还没实现 ——
+// 所以出勤在本轮是**参数**，不造假数据源、也不默认出勤。
+//
+// ⚠️ 本模块目前**不含 UI**，因此不依赖 core:ui。
 // 本模块不得依赖任何其他 :feature:*（R2）。
