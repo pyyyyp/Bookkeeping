@@ -3,7 +3,9 @@ package com.jizhangbao.insight.presentation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,6 +22,12 @@ import com.jizhangbao.core.domain.CategoryAmount
 import com.jizhangbao.core.domain.MonthlyComparison
 import com.jizhangbao.core.domain.MonthlyTotals
 import com.jizhangbao.core.domain.MonthlyTrend
+import com.jizhangbao.core.ui.component.AmountText
+import com.jizhangbao.core.ui.component.AmountTone
+import com.jizhangbao.core.ui.component.SectionCard
+import com.jizhangbao.core.ui.component.SectionTitle
+import com.jizhangbao.core.ui.component.StatTile
+import com.jizhangbao.core.ui.theme.jizhangbaoColors
 import com.jizhangbao.insight.R
 import java.time.YearMonth
 
@@ -72,9 +80,19 @@ internal fun MonthlyTotalsRoute(
 }
 
 /**
- * 合计区：月份 + 翻月 + 支出/收入/结余三项。
+ * 合计区：**月度概览卡** + 环比 + 趋势 + 构成。
  *
- * 无状态（state + 回调），所以能直接预览与测试，不需要 ViewModel。
+ * ## 视觉改动只做两件事（`T-036` / `ADR-0014`）
+ *
+ * 1. **主次**：以前三项（支出/收入/结余）是并排的三行等权文字，看不出"这个月花了多少"是主角。
+ *    现在支出是**卡里的主金额**（大号 + 支出色），收入与结余退成两个小格。
+ * 2. **色彩语义**：支出暖红、收入薄荷绿、结余青 —— 三个数字一眼分得开。
+ *
+ * ## 界面仍然不做任何计算
+ *
+ * 每一项都由模型给出（`MonthlyTotals` / `MonthlyComparison` / `MonthlyTrend`）。
+ * 这里唯一的"判断"是 `point.month == state.month`（**当月那一行加重**）——
+ * 那是比较两个已给的值，不是算术。
  */
 @Composable
 internal fun MonthlyTotalsSection(
@@ -85,8 +103,63 @@ internal fun MonthlyTotalsSection(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        MonthlyOverviewCard(
+            state = state,
+            onPreviousMonth = onPreviousMonth,
+            onNextMonth = onNextMonth,
+        )
+
+        // REQ-005：支出构成。这个月有活动时才显示 ——
+        // 整月都没有记账时，下面的「这个月还没有记账」已经把话说清楚了，
+        // 再叠一句"本月还没有支出"只是噪音
+        if (state.totals != MonthlyTotals.ZERO && !state.isLoading) {
+            // REQ-010：最近几个月的支出趋势。
+            // 放在环比后面、占比前面：它和环比都是"时间轴"上的事，而占比是"构成"。
+            // 与占比共用同一个门槛：空月不谈趋势（和 AC-4 同一个原则）
+            if (!state.trend.isEmpty) {
+                MonthlyTrendCard(trend = state.trend, currentMonth = state.month)
+            }
+
+            CategoryShareList(
+                breakdown = state.breakdown,
+                // 月份由状态给：它才是"用户现在看的是哪个月"的唯一来源
+                onCategorySelected = { row -> onCategorySelected(row, state.month) },
+            )
+        }
+
+        if (state.totals == MonthlyTotals.ZERO && !state.isLoading) {
+            // AC-3：零要么是"这个月还没记账"，要么是"读不出来"——两者必须分开说
+            Text(
+                text = stringResource(R.string.insight_empty_month),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.jizhangbaoColors.muted,
+            )
+        }
+
+        if (state.hasFailure) {
+            Text(
+                text = stringResource(R.string.insight_failure),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+    }
+}
+
+/**
+ * 月度概览卡：月份 + 翻月 + **支出（主金额）** + 环比 + 收入/结余两个小格。
+ *
+ * `highlight = true` → 描边用强调色：这一屏上它是主角（`ADR-0014` 决策 3）。
+ */
+@Composable
+private fun MonthlyOverviewCard(
+    state: MonthlyTotalsUiState,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+) {
+    SectionCard(highlight = true, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -114,44 +187,37 @@ internal fun MonthlyTotalsSection(
             }
         }
 
-        TotalsRow(state.totals)
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // REQ-005：支出构成。这个月有活动时才显示 ——
-        // 整月都没有记账时，下面的「这个月还没有记账」已经把话说清楚了，
-        // 再叠一句"本月还没有支出"只是噪音
-        if (state.totals != MonthlyTotals.ZERO && !state.isLoading) {
-            // REQ-009：与上月的支出环比。
-            // 与占比共用一个门槛（AC-4）：本月没有记账时两个都不显示 ——
-            // 没有数据的月份谈不上"与上月持平"，那是噪音
-            state.comparison?.let { MonthlyComparisonLine(it) }
+        SectionTitle(stringResource(R.string.insight_expense_total))
+        AmountText(
+            text = state.totals.expense.toString(),
+            tone = AmountTone.EXPENSE,
+            emphasis = true,
+            align = androidx.compose.ui.text.style.TextAlign.Start,
+        )
 
-            // REQ-010：最近几个月的支出趋势。
-            // 放在环比后面、占比前面：它和环比都是"时间轴"上的事，而占比是"构成"。
-            // 与占比共用同一个门槛：空月不谈趋势（和 AC-4 同一个原则）
-            if (!state.trend.isEmpty) {
-                MonthlyTrendList(trend = state.trend)
-            }
-
-            CategoryShareList(
-                breakdown = state.breakdown,
-                // 月份由状态给：它才是"用户现在看的是哪个月"的唯一来源
-                onCategorySelected = { row -> onCategorySelected(row, state.month) },
-            )
+        // REQ-009：与上月的支出环比（模型算的差额，界面只负责说人话）
+        state.comparison?.let { comparison ->
+            MonthlyComparisonLine(comparison)
         }
 
-        if (state.totals == MonthlyTotals.ZERO && !state.isLoading) {
-            // AC-3：零要么是"这个月还没记账"，要么是"读不出来"——两者必须分开说
-            Text(
-                text = stringResource(R.string.insight_empty_month),
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
+        Spacer(modifier = Modifier.height(14.dp))
 
-        if (state.hasFailure) {
-            Text(
-                text = stringResource(R.string.insight_failure),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            StatTile(
+                label = stringResource(R.string.insight_income_total),
+                value = state.totals.income.toString(),
+                valueTone = AmountTone.INCOME,
+            )
+            StatTile(
+                label = stringResource(R.string.insight_net_total),
+                // 负号由 SignedMoney.toString() 负责 —— 这是唯一一处"格式即语义"的地方
+                value = state.totals.net.toString(),
+                valueTone = AmountTone.ACCENT,
             )
         }
     }
@@ -160,38 +226,43 @@ internal fun MonthlyTotalsSection(
 /**
  * 最近几个月的支出（`REQ-010`）。
  *
- * ## 为什么是文字而不是图表
+ * ## 为什么还是文字，只是分了主次
  *
- * 视觉设计还没定（`Q-020`）。一张图要处理配色、坐标轴、极小值、无障碍朗读 ——
- * 那是另一个需求的工作量，而"最近半年各花了多少"用六行文字已经说得清清楚楚。
- *
- * ## 界面不做任何计算
- *
- * 排序（从新到旧）、"没有记账的月份是零"、以及"当月那一行等于合计区的数字"
- * 都由模型保证（`MonthlyTrend` / `TrendPoint`）。这里只把月份和金额摆出来 ——
- * 一旦在这里算比例或重排，就又多了一处口径。
+ * `Q-020` 已由 `ADR-0014` 定案，但**比例条的比例必须由模型给**（本文件的铁律：界面不做计算）。
+ * `MonthlyTrend` 目前只给"每个月多少"，没给"相对最大值是多少" ——
+ * 在界面里现算就是第二处口径，所以这一轮**不加条**：当月那一行用强调色加重即可。
+ * 真要条，就给 `MonthlyTrend` 加一个模型层的比例（另一张卡）。
  */
 @Composable
-private fun MonthlyTrendList(trend: MonthlyTrend) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(
-            text = stringResource(R.string.insight_trend_title, trend.points.size),
-            style = MaterialTheme.typography.titleSmall,
-        )
-        trend.points.forEach { point ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = stringResource(
-                        R.string.insight_month_format,
-                        point.month.year,
-                        point.month.monthValue,
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Text(text = point.totals.expense.toString(), style = MaterialTheme.typography.bodySmall)
+private fun MonthlyTrendCard(trend: MonthlyTrend, currentMonth: YearMonth) {
+    SectionCard(modifier = Modifier.fillMaxWidth()) {
+        SectionTitle(stringResource(R.string.insight_trend_title, trend.points.size))
+        Spacer(modifier = Modifier.height(8.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            trend.points.forEach { point ->
+                val isCurrent = point.month == currentMonth
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = stringResource(
+                            R.string.insight_month_format,
+                            point.month.year,
+                            point.month.monthValue,
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isCurrent) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.jizhangbaoColors.muted
+                        },
+                    )
+                    AmountText(
+                        text = point.totals.expense.toString(),
+                        tone = if (isCurrent) AmountTone.ACCENT else AmountTone.MUTED,
+                    )
+                }
             }
         }
     }
@@ -215,26 +286,10 @@ private fun MonthlyComparisonLine(comparison: MonthlyComparison) {
         else -> stringResource(R.string.insight_comparison_more, delta.toString())
     }
 
-    Text(text = text, style = MaterialTheme.typography.bodySmall)
-}
-
-@Composable
-private fun TotalsRow(totals: MonthlyTotals) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        TotalItem(stringResource(R.string.insight_expense_total), totals.expense.toString())
-        TotalItem(stringResource(R.string.insight_income_total), totals.income.toString())
-        // 负号由 SignedMoney.toString() 负责 —— 这是唯一一处"格式即语义"的地方
-        TotalItem(stringResource(R.string.insight_net_total), totals.net.toString())
-    }
-}
-
-@Composable
-private fun TotalItem(label: String, value: String) {
-    Column {
-        Text(text = label, style = MaterialTheme.typography.labelMedium)
-        Text(text = value, style = MaterialTheme.typography.bodyLarge)
-    }
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.jizhangbaoColors.muted,
+    )
 }

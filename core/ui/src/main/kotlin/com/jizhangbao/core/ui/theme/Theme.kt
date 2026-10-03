@@ -1,35 +1,57 @@
 package com.jizhangbao.core.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.Shapes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.unit.dp
 
 /**
  * 记账宝的应用主题。
  *
- * ⚠️ **配色与排版目前是 Material 3 的默认值，不是设计结果。**
- * 本项目的视觉设计尚未确定（没有设计稿），因此这里刻意不编造品牌色板——
- * 编一套看起来专业但无人拍板的颜色，会让后续真正的设计决策更难落地。
- * 待设计确定后，只需替换下面两个 ColorScheme 与 typography 参数，
- * 调用点（[JizhangbaoTheme]）不变。
+ * ## 视觉方向（`ADR-0014`）
  *
- * 见 `docs/20-domain/open-questions.md` 的 Q-020。
+ * **深色为主**：深蓝黑打底、青/紫做高光、数字前置。用户的诉求是"更有科技感一些"，
+ * 而记账 App 的核心就是数字 —— 深色让数字"发光"。
+ *
+ * ⚠️ **默认深色**（`darkTheme = true`），但**保留浅色方案**（`PaperLightColors`）。
+ * 被否的方案是"跟随系统"：在浅色系统上就得不到那个效果，用户的诉求落不了地。
+ *
+ * ## 换色板只动两个文件
+ *
+ * 颜色在 `Color.kt`、字号在 `Type.kt` —— **界面结构一行都不用改**。
+ * 这是"可推翻"的具体含义：想换方向就改那两个文件。
  */
 @Composable
 fun JizhangbaoTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
-        content = content,
-    )
+    val semantics = if (darkTheme) TechDarkSemantics else PaperLightSemantics
+    CompositionLocalProvider(LocalJizhangbaoColors provides semantics) {
+        MaterialTheme(
+            colorScheme = if (darkTheme) TechDarkColors else PaperLightColors,
+            typography = TechTypography,
+            shapes = TechShapes,
+            content = content,
+        )
+    }
 }
 
-// TODO(Q-020): 待设计稿确定后替换为品牌色板；当前为 Material 3 默认值。
-private val LightColors = lightColorScheme()
+/**
+ * 圆角（`ADR-0014`）：卡片 20dp、输入 14dp。
+ *
+ * 比 M3 默认更圆一点 —— 深色下圆角与描边一起构成"面板"的感觉。
+ */
+internal val TechShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(14.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(28.dp),
+)
 
-// TODO(Q-020): 同上。
-private val DarkColors = darkColorScheme()
+/** 让调用点少写一次 `MaterialTheme.colorScheme`。 */
+val MaterialTheme.jizhangbaoColors: JizhangbaoColors
+    @Composable get() = LocalJizhangbaoColors.current
