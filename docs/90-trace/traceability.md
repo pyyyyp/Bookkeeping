@@ -131,7 +131,7 @@
 | 已建工程模块数 | **11**（1 个 Kotlin JVM + 9 个 Android Library + 1 个 Application） |
 | 领域层测试数 | **25**（全绿；`T-009` 第一段新增 `SignedMoney` 6 条 + `MonthlyTotals` 5 条） |
 | Android 侧测试数 | **199**（JVM 全绿；其中 6 条是 Konsist 架构断言）+ **14** 条仪器化 DAO 测试（真库，经 `am instrument` 运行） |
-| 可交付产物 | `app-debug.apk`（已在模拟器上启动并冒烟验证；数据库 `version = 2`，含迁移） |
+| 可交付产物 | **v0.1.0**：`app-release-unsigned.apk`（**8.64 MB**）+ 侧载用的 `app-debug.apk`（12.51 MB）。APK 内**实测** `versionCode=1 versionName=0.1.0`（AGP 9 下不显式给版本号会是空字符串 —— 这正是 `AndroidApplicationConventionPlugin` 注释里那条实测记录）。数据库 `version = 2`，含迁移。发布检查清单逐项证据见 `docs/40-tasks/T-020-release-prep.md` |
 
 ## 工程任务进度
 
