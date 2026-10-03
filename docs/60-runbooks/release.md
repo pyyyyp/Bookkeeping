@@ -21,6 +21,10 @@ SemVer `MAJOR.MINOR.PATCH`，`versionCode` 单调递增。
 - [ ] 版本号与 `versionCode` 已更新
 - [ ] 更新日志已整理（按 REQ 编号列出用户可见变更）
 - [ ] 隐私政策 / 权限说明与实现一致
+      ⚠️ 从 `T-030`（`REQ-016` 地理围栏）起，本 App **不再"没有任何权限"**。实际声明的只有：
+      `ACCESS_COARSE_LOCATION` + `ACCESS_FINE_LOCATION`（**没有**后台定位）。
+      发布前对一遍 `app/src/main/AndroidManifest.xml`，并确认版本说明里写了"为什么要位置"，
+      以及"App 没打开时不记录"这个范围（`ADR-0013` 决策 3）。
 - [ ] 目标 API 级别符合应用商店最新要求
 - [ ] Release 构建体积与上一版本对比无异常增长
 - [ ] 关键旅程在真机上手工验证通过

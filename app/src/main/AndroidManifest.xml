@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!--
+      位置权限（REQ-016 / ADR-0013）：地理围栏要靠它自动记录工时。
+
+      ⚠️ 这是本项目**第一次**声明权限 —— "这个 App 没有任何权限"这句话
+      从此不再成立（T-020 的发布检查清单里那一行原先**核实过**"没有任何 uses-permission"，
+      同一个提交里已同步修改）。
+
+      两个都申请是刻意的：用户可以只给"大致位置"（coarse），
+      对"几百米的围栏"够用，而那是更小的授权。
+
+      ⚠️ 仍然**没有** ACCESS_BACKGROUND_LOCATION：v1 只在 App 运行时记录（ADR-0013 决策 3）。
+    -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
     <application
         android:name=".JizhangbaoApplication"
         android:allowBackup="false"

@@ -2,7 +2,9 @@ package com.jizhangbao.worklog.di
 
 import com.jizhangbao.core.domain.WorklogReader
 import com.jizhangbao.worklog.data.WorklogReaderImpl
+import com.jizhangbao.worklog.data.location.AndroidLocationSource
 import com.jizhangbao.worklog.data.repository.WorkSessionRepositoryImpl
+import com.jizhangbao.worklog.domain.LocationSource
 import com.jizhangbao.worklog.domain.repository.WorkSessionRepository
 import dagger.Binds
 import dagger.Module
@@ -33,4 +35,12 @@ internal abstract class WorklogModule {
     @Binds
     @Singleton
     internal abstract fun bindWorklogReader(impl: WorklogReaderImpl): WorklogReader
+
+    /**
+     * 定位来源（`REQ-016`）：**ACL** —— 领域只认 `LocationSource`，
+     * 系统 `LocationManager` 的实现被封在 data 层（`ADR-0013` 决策 2）。
+     */
+    @Binds
+    @Singleton
+    internal abstract fun bindLocationSource(impl: AndroidLocationSource): LocationSource
 }

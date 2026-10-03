@@ -18,6 +18,12 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
+    // Flow / callbackFlow（LocationSource 的端口形状，REQ-016）。
+    // ⚠️ 这**不是**引入新依赖：coroutines 1.9.0 本来就在这张依赖图里（各模块都在用，
+    // 版本目录里早就有版本号），这里只是把 worklog 用到它的那部分**显式声明**出来 ——
+    // 靠 Room 传递进来是脆的，哪天 Room 换了实现就会突然编译不过。
+    implementation(libs.kotlinx.coroutines.core)
+
     // DI：@Inject / @Binds 与生成代码
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
