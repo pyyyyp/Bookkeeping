@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jizhangbao.core.domain.CategoryAmount
 import com.jizhangbao.core.domain.MonthlyComparison
 import com.jizhangbao.core.domain.MonthlyTotals
+import com.jizhangbao.core.domain.MonthlyTrend
 import com.jizhangbao.insight.R
 import java.time.YearMonth
 
@@ -124,6 +125,13 @@ internal fun MonthlyTotalsSection(
             // 没有数据的月份谈不上"与上月持平"，那是噪音
             state.comparison?.let { MonthlyComparisonLine(it) }
 
+            // REQ-010：最近几个月的支出趋势。
+            // 放在环比后面、占比前面：它和环比都是"时间轴"上的事，而占比是"构成"。
+            // 与占比共用同一个门槛：空月不谈趋势（和 AC-4 同一个原则）
+            if (!state.trend.isEmpty) {
+                MonthlyTrendList(trend = state.trend)
+            }
+
             CategoryShareList(
                 breakdown = state.breakdown,
                 // 月份由状态给：它才是"用户现在看的是哪个月"的唯一来源
@@ -145,6 +153,46 @@ internal fun MonthlyTotalsSection(
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
             )
+        }
+    }
+}
+
+/**
+ * 最近几个月的支出（`REQ-010`）。
+ *
+ * ## 为什么是文字而不是图表
+ *
+ * 视觉设计还没定（`Q-020`）。一张图要处理配色、坐标轴、极小值、无障碍朗读 ——
+ * 那是另一个需求的工作量，而"最近半年各花了多少"用六行文字已经说得清清楚楚。
+ *
+ * ## 界面不做任何计算
+ *
+ * 排序（从新到旧）、"没有记账的月份是零"、以及"当月那一行等于合计区的数字"
+ * 都由模型保证（`MonthlyTrend` / `TrendPoint`）。这里只把月份和金额摆出来 ——
+ * 一旦在这里算比例或重排，就又多了一处口径。
+ */
+@Composable
+private fun MonthlyTrendList(trend: MonthlyTrend) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = stringResource(R.string.insight_trend_title, trend.points.size),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        trend.points.forEach { point ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = stringResource(
+                        R.string.insight_month_format,
+                        point.month.year,
+                        point.month.monthValue,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(text = point.totals.expense.toString(), style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

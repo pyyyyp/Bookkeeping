@@ -3,6 +3,7 @@ package com.jizhangbao.insight.presentation
 import com.jizhangbao.core.domain.CategoryBreakdown
 import com.jizhangbao.core.domain.MonthlyComparison
 import com.jizhangbao.core.domain.MonthlyTotals
+import com.jizhangbao.core.domain.MonthlyTrend
 import java.time.Clock
 import java.time.YearMonth
 
@@ -43,6 +44,13 @@ internal data class MonthlyTotalsUiState(
      * "没有变化"）、以及本月没有记账（`AC-4`：没有数据的月份谈不上比较）。
      */
     val comparison: MonthlyComparison?,
+    /**
+     * 最近几个月的支出趋势（`REQ-010`）。
+     *
+     * 与 [comparison] 同一个立场：读不出来时是 [MonthlyTrend.EMPTY]（**不显示**），
+     * 而不是"六个月都是零" —— 那会让趋势撒谎。
+     */
+    val trend: MonthlyTrend,
 ) {
 
     val canGoToPreviousMonth: Boolean get() = true
@@ -64,6 +72,7 @@ internal data class MonthlyTotalsUiState(
                 canGoToNextMonth = false,
                 breakdown = CategoryBreakdown.EMPTY,
                 comparison = null,
+                trend = MonthlyTrend.EMPTY,
             )
         }
     }

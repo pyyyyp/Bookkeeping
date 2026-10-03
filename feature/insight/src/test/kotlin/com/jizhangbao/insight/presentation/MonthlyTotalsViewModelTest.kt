@@ -6,6 +6,7 @@ import com.jizhangbao.core.domain.Outcome
 import com.jizhangbao.core.domain.toTimeRange
 import com.jizhangbao.insight.application.LoadCategoryShareUseCase
 import com.jizhangbao.insight.application.LoadMonthlyComparisonUseCase
+import com.jizhangbao.insight.application.LoadMonthlyTrendUseCase
 import com.jizhangbao.insight.application.LoadMonthlyTotalsUseCase
 import com.jizhangbao.insight.testing.FakeLedgerTotalsReader
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +48,8 @@ class MonthlyTotalsViewModelTest {
         loadCategoryShare = LoadCategoryShareUseCase(reader, clock),
         // REQ-009：环比用同一个端口 fake（它收的就是任意区间）
         loadMonthlyComparison = LoadMonthlyComparisonUseCase(reader, clock),
+        // REQ-010：趋势同样用这个端口 fake（对最近六段区间各问一次）
+        loadMonthlyTrend = LoadMonthlyTrendUseCase(reader, clock),
         clock = clock,
     )
 
@@ -65,14 +68,24 @@ class MonthlyTotalsViewModelTest {
         val vm = viewModel()
         advanceUntilIdle()
 
-        // 一次刷新取**三段**区间：合计问一次本月，环比用例自带"本月 + 上月"（REQ-009）。
+        // 一次刷新取**三块**：合计 1 次、环比 2 次（本月 + 上月）、趋势 6 次（含前两者）。
         //
-        // 多出来的那一次本月 SUM 是**刻意的取舍**：环比用例只收一个 month，因此**自足** ——
-        // 它不依赖"调用方已经先取好本月合计"。代价是每次刷新多一条最便宜的聚合查询。
-        // 这里把顺序逐字钉住，将来若改成"复用已取的本月合计"，这条断言会提醒改测试。
+        // 这里把序列逐字钉住 —— 它是"每个用例自足"的代价（见 T-019 / T-021 卡的说明）：
+        // 将来若改成"一次快照"，这条断言会**提醒改测试**，而不是悄悄多打几次查询。
         val october = YearMonth.of(2026, 10).toTimeRange(zone)
         val september = YearMonth.of(2026, 9).toTimeRange(zone)
-        assertEquals(listOf(october, october, september), reader.requestedRanges)
+        val august = YearMonth.of(2026, 8).toTimeRange(zone)
+        val july = YearMonth.of(2026, 7).toTimeRange(zone)
+        val june = YearMonth.of(2026, 6).toTimeRange(zone)
+        val may = YearMonth.of(2026, 5).toTimeRange(zone)
+        assertEquals(
+            listOf(
+                october, // 合计（REQ-002）
+                october, september, // 环比：本月 + 上月（REQ-009）
+                october, september, august, july, june, may, // 趋势：最近六个月（REQ-010）
+            ),
+            reader.requestedRanges,
+        )
         assertEquals(1, reader.requestedBreakdownRanges.size)
         assertEquals(Month.OCTOBER, vm.uiState.value.month.month)
     }
@@ -89,9 +102,11 @@ class MonthlyTotalsViewModelTest {
         // AC-7：两个数字同屏，占比必须与**合计**来自同一段区间
         val september = YearMonth.of(2026, 9).toTimeRange(zone)
         assertEquals(september, reader.requestedBreakdownRanges.last())
-        // 而环比（REQ-009）多问了一段上月的 —— 它不该被误当成合计的区间
-        assertEquals(YearMonth.of(2026, 8).toTimeRange(zone), reader.requestedRanges.last())
-        assertEquals(september, reader.requestedRanges[reader.requestedRanges.size - 2])
+        // 趋势的最后一行是翻月后的第 6 个月（REQ-010）—— 它显然不该被误当成合计
+        assertEquals(YearMonth.of(2026, 4).toTimeRange(zone), reader.requestedRanges.last())
+        // ⚠️ 不能用 `requestedRanges.first()` 代表"这一次的合计"：**初始化那次刷新也在同一个列表里**
+        // （它是十月）。能钉住的是"翻月后九月这一段确实被问了" —— 合计、环比、趋势各一次
+        assertTrue(reader.requestedRanges.count { it == september } >= 3)
     }
 
     @Test

@@ -10,6 +10,8 @@
     <string name="insight_comparison_more">比上月多花 %1$s</string>
     <string name="insight_comparison_less">比上月少花 %1$s</string>
     <string name="insight_comparison_same">与上月持平</string>
+    <!-- REQ-010 趋势：只比支出（与环比同一个范围选择）；月份复用 insight_month_format -->
+    <string name="insight_trend_title">最近 %1$d 个月支出</string>
     <string name="insight_previous_month">上一月</string>
     <string name="insight_next_month">下一月</string>
     <string name="insight_expense_total">支出</string>
