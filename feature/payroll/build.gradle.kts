@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.jizhangbao.android.library)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 android {
@@ -8,6 +10,10 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
+
+    // DI：工资单用例要能被 :app 装配（ADR-0008 的读通路；它消费 Calendar 与 Worklog 两个端口）
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit4)
 }

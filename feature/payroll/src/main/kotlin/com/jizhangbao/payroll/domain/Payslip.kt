@@ -25,4 +25,11 @@ data class Payslip(
     val amountDue: Money,
     /** `amountDue − 月薪`。可为负（例如缺勤多）。 */
     val differenceFromSalary: SignedMoney,
+    /**
+     * 该月的日期类型里，是否有一天来自"这一年还没有节假日数据"（`REQ-015/AC-6`）。
+     *
+     * 必须带出来：否则用户会以为"今年没有节假日"，而真相是**数据还没填**（`REQ-012/AC-4`）。
+     * **静默退化最糟** —— 一个安静的错误比一个明说的缺失难查得多。
+     */
+    val holidayDataMissing: Boolean = false,
 )
